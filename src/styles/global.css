@@ -1,0 +1,146 @@
+/* metz.uk — light in the dark. Warm white on ink, one luminous thread, colour only from the
+   projects themselves. */
+
+:root {
+  color-scheme: dark;
+
+  --ink: #0b0b0c;
+  --ink-2: #141416;
+  --ink-3: #1b1b1e;
+  --text: #edebe6;
+  --text-2: #c8c5be;
+  --muted: #8c8a85;
+  --hair: rgba(237, 235, 230, 0.12);
+  --hair-strong: rgba(237, 235, 230, 0.32);
+
+  --zen: #34d07f;
+  /* The page's accent: a project's colour on its case study, warm white elsewhere. */
+  --tint: var(--text);
+
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --gutter: clamp(20px, 5vw, 72px);
+  --page-max: 1360px;
+  --prose-max: 680px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--ink);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--ink);
+  min-height: 100svh;
+  font-size: 17px;
+  line-height: 1.55;
+}
+
+/* German has long compounds; let them break where the dictionary allows. */
+:lang(de) :is(h1, h2, h3, p, li, dd) {
+  hyphens: auto;
+  hyphenate-limit-chars: 10 4 4;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+::selection {
+  background: rgba(52, 208, 127, 0.35);
+}
+
+img {
+  max-width: 100%;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* A small mono label above a heading or a group. */
+.eyebrow {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: 12px;
+  top: -60px;
+  z-index: 100;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--text);
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+.skip-link:focus {
+  top: 12px;
+}
+
+.lang-switch {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  transition: color 0.25s ease;
+}
+.lang-switch:hover {
+  color: var(--text);
+}
+
+/* The thread's canvas: fixed behind everything, never in the way. It is as tall as the *large*
+   viewport, so phone toolbars sliding in and out never resize it. */
+.thread-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  height: 100lvh;
+  z-index: 0;
+  pointer-events: none;
+}
