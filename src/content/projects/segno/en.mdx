@@ -1,0 +1,43 @@
+---
+title: "segno"
+headline: "A Deno port of validator.js from 2020: 73 string validators with TypeScript types, tests, docs and releases."
+description: "segno by Constantin Metz: a 2020 Deno port of validator.js with 73 typed string validators, 155 tests, TypeDoc docs and five releases on deno.land/x."
+role: "Solo · port, types, tests, docs, releases"
+stack: ["TypeScript", "Deno", "Deno std", "TypeDoc", "GitHub Actions"]
+facts:
+  - { value: "73", label: "validators ported" }
+  - { value: "155", label: "Deno tests" }
+  - { value: "194", label: "commits in six weeks" }
+  - { value: "5", label: "releases on deno.land/x" }
+---
+
+## The problem
+
+In the summer of 2020, Deno had just reached 1.0. It loaded modules by URL and couldn't use npm packages, so the best-known string-validation library in JavaScript, validator.js, wasn't available to it. And validator.js is plain JavaScript written for Node, with loosely typed options objects.
+
+## What I built
+
+segno, short for Segnosaurus (a dinosaur, like Deno's mascot), is a TypeScript port of validator.js for Deno. It ports 73 validators, from `isEmail`, `isURL` and `isIP` to `isIBAN`, `isMobilePhone` and `isTaxID`. Each lives in its own module, and every one is exported directly and under a `segno` namespace. This is the example from the README:
+
+```ts
+import { segno, isIP } from 'https://deno.land/x/segno/mod.ts';
+
+console.log(segno.isEmail('foo@example.org')); // true
+console.log(isIP('127.0.0.1')); // true
+```
+
+I published five releases on deno.land/x, from v0.1.0 to v1.1.0, between July and August 2020. A GitHub Action builds the API documentation with TypeDoc and publishes it to [segno.js.org](https://segno.js.org). The code is on [GitHub](https://github.com/Keimeno/segno) under the MIT licence, with validator.js's original copyright kept next to mine.
+
+## The hard parts
+
+**Types for an untyped API.** validator.js takes options as loose objects with snake_case keys. Every validator that takes options got a typed options object with camelCase names: `isFQDN`, for example, takes `requireTLD`, `allowUnderscores` and `allowTrailingDot`, each with a documented default. The compiler runs in strict mode with `noImplicitAny`, and a later pass replaced the remaining implicit `any`s with explicit types. The renaming is a deliberate break from validator.js: code that passes `require_tld` has to change.
+
+**Porting the tests, not just the code.** A port is only as trustworthy as its test cases. I rebuilt validator.js's table-driven test helper on Deno's standard asserts, so each test lists a validator, its arguments, and the inputs that must pass, fail or throw. The validator names form a TypeScript union, which turns a typo in a test into a compile error. That came to 155 `Deno.test` cases across 67 files.
+
+**Deno imports against the TypeScript toolchain.** Deno requires an explicit `.ts` extension on every import. The TypeScript compiler of 2020, which TypeDoc runs on, rejected exactly those imports, so the docs build failed. The fix was pragmatic: Node-style module resolution for the docs build, and a commented `@ts-ignore` above each import, harmless under Deno and required by TypeDoc. It isn't pretty, but it kept one source tree for both the runtime and the docs.
+
+**Supporting older Deno versions.** Deno's standard library was versioned separately and moved fast. For v1.1.0 I pinned the test asserts to std 0.34.0 and ran CI against Deno 0.34.0, 1.0.0 and the latest release, so the library also worked for people who hadn't upgraded.
+
+## Status
+
+segno has been unchanged since v1.1.0 in August 2020. The sanitisers (`escape`, `trim`, `toDate` and others) are in the repository as internal helpers but were never exported, and the README still calls the documentation a work in progress. Deno can import npm packages directly these days, so the gap segno filled has mostly closed.

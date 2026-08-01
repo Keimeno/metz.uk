@@ -1,0 +1,43 @@
+---
+title: "segno"
+headline: "Eine Deno-Portierung von validator.js von 2020: 73 String-Validatoren mit TypeScript-Typen, Tests, Doku und Releases."
+description: "segno von Constantin Metz: Deno-Portierung von validator.js (2020) mit 73 typisierten Validatoren, 155 Tests, TypeDoc-Doku und fünf Releases auf deno.land/x."
+role: "Solo · Portierung, Typen, Tests, Doku, Releases"
+stack: ["TypeScript", "Deno", "Deno std", "TypeDoc", "GitHub Actions"]
+facts:
+  - { value: "73", label: "portierte Validatoren" }
+  - { value: "155", label: "Deno-Tests" }
+  - { value: "194", label: "Commits in sechs Wochen" }
+  - { value: "5", label: "Releases auf deno.land/x" }
+---
+
+## Das Problem
+
+Im Sommer 2020 war Deno gerade bei Version 1.0 angekommen. Module wurden per URL geladen, npm-Pakete ließen sich nicht nutzen, und damit fehlte die bekannteste Bibliothek für String-Validierung in JavaScript: validator.js. Die ist außerdem reines JavaScript für Node, mit lose typisierten Options-Objekten.
+
+## Was ich gebaut habe
+
+segno, kurz für Segnosaurus (ein Dinosaurier, wie Denos Maskottchen), ist eine TypeScript-Portierung von validator.js für Deno. Sie umfasst 73 Validatoren, von `isEmail`, `isURL` und `isIP` bis `isIBAN`, `isMobilePhone` und `isTaxID`. Jeder steckt in einem eigenen Modul und wird sowohl direkt als auch unter dem Namespace `segno` exportiert. Das Beispiel aus der README:
+
+```ts
+import { segno, isIP } from 'https://deno.land/x/segno/mod.ts';
+
+console.log(segno.isEmail('foo@example.org')); // true
+console.log(isIP('127.0.0.1')); // true
+```
+
+Zwischen Juli und August 2020 habe ich fünf Releases auf deno.land/x veröffentlicht, von v0.1.0 bis v1.1.0. Eine GitHub Action baut die API-Dokumentation mit TypeDoc und veröffentlicht sie unter [segno.js.org](https://segno.js.org). Der Code liegt auf [GitHub](https://github.com/Keimeno/segno), unter MIT-Lizenz, mit dem ursprünglichen Copyright von validator.js neben meinem.
+
+## Die schwierigen Teile
+
+**Typen für eine untypisierte API.** validator.js nimmt Optionen als lose Objekte mit snake_case-Schlüsseln entgegen. Jeder Validator mit Optionen hat bei segno ein typisiertes Options-Objekt mit camelCase-Namen bekommen: `isFQDN` etwa nimmt `requireTLD`, `allowUnderscores` und `allowTrailingDot`, jeweils mit dokumentiertem Standardwert. Der Compiler läuft im Strict Mode mit `noImplicitAny`, und in einem späteren Durchgang habe ich die restlichen impliziten `any` durch explizite Typen ersetzt. Die Umbenennung ist ein bewusster Bruch mit validator.js: Wer `require_tld` übergibt, muss seinen Code anpassen.
+
+**Die Tests portieren, nicht nur den Code.** Eine Portierung ist nur so vertrauenswürdig wie ihre Testfälle. Ich habe den tabellengetriebenen Test-Helper von validator.js auf den Standard-Asserts von Deno nachgebaut: Jeder Test nennt einen Validator, seine Argumente und die Eingaben, die durchgehen, scheitern oder einen Fehler werfen müssen. Die Namen der Validatoren bilden einen TypeScript-Union-Typ, ein Tippfehler im Test wird so zum Compilerfehler. Am Ende waren es 155 `Deno.test`-Fälle in 67 Dateien.
+
+**Deno-Imports gegen die TypeScript-Toolchain.** Deno verlangt bei jedem Import die Endung `.ts`. Der TypeScript-Compiler von 2020, auf dem TypeDoc läuft, hat genau solche Imports abgelehnt, und der Doku-Build schlug fehl. Die Lösung war pragmatisch: Modulauflösung im Node-Stil für den Doku-Build und ein kommentiertes `@ts-ignore` über jedem Import, harmlos für Deno und nötig für TypeDoc. Schön ist das nicht, aber so blieb es bei einem Quellbaum für Laufzeit und Doku.
+
+**Ältere Deno-Versionen.** Denos Standardbibliothek wurde separat versioniert und änderte sich schnell. Für v1.1.0 habe ich die Test-Asserts auf std 0.34.0 festgelegt und die CI gegen Deno 0.34.0, 1.0.0 und die jeweils neueste Version laufen lassen, damit die Bibliothek auch bei allen funktionierte, die noch nicht aktualisiert hatten.
+
+## Stand
+
+Seit v1.1.0 im August 2020 ist segno unverändert. Die Sanitizer (`escape`, `trim`, `toDate` und andere) liegen als interne Helfer im Repository, wurden aber nie exportiert, und laut README ist die Dokumentation noch in Arbeit. Inzwischen kann Deno npm-Pakete direkt importieren, die Lücke, die segno gefüllt hat, ist also weitgehend geschlossen.

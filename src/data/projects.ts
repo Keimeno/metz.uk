@@ -1,0 +1,72 @@
+// The projects, in the order the site shows them. The words live in the content collection
+// (`src/content/projects/<slug>/{en,de}.mdx`); this registry holds what doesn't change between
+// languages: years, links, the station on the thread and its colour.
+
+import type { StationId } from "../thread/beats";
+
+export type LinkKind = "appStore" | "site" | "live" | "repo" | "docs" | "pr";
+
+export interface ProjectLink {
+  kind: LinkKind;
+  href: string;
+  /** Shown instead of the kind's label, e.g. a domain. */
+  label?: string;
+}
+
+export interface ProjectMedia {
+  src: string;
+  width: number;
+  height: number;
+  /** "phone": a portrait app screenshot; "still": a wide render of the thread's figure. */
+  kind: "phone" | "still";
+}
+
+/** What a project is, for its structured-data node (src/lib/seo.ts). */
+export interface ProjectSchema {
+  type: "MobileApplication" | "WebApplication" | "SoftwareSourceCode" | "CreativeWork";
+  /** schema.org `applicationCategory`, for apps. */
+  category?: string;
+  operatingSystem?: string;
+  /** The node's @id when another site already defines it, so both describe the same thing. */
+  id?: string;
+  /** For source code. */
+  language?: string;
+  runtime?: string;
+}
+
+export interface ProjectDef {
+  slug: string;
+  years: string;
+  /** The project's station on the home page's thread, if it has one. */
+  station?: Extract<StationId, "zenarios" | "signals" | "paperscores" | "origins">;
+  /** The station's colour; the case study's accent. */
+  tint: string;
+  links: ProjectLink[];
+  /** Header picture(s), first one leading. */
+  media?: ProjectMedia[];
+  schema: ProjectSchema;
+}
+
+export const PROJECTS = [
+  {
+    slug: "segno",
+    years: "2020",
+    tint: "#8fb4ff",
+    links: [
+      { kind: "docs", href: "https://segno.js.org", label: "segno.js.org" },
+      { kind: "repo", href: "https://github.com/Keimeno/segno" },
+    ],
+    schema: { type: "SoftwareSourceCode", language: "TypeScript", runtime: "Deno" },
+  },
+] as const satisfies readonly ProjectDef[];
+
+export type ProjectSlug = (typeof PROJECTS)[number]["slug"];
+
+export const PROJECT_SLUGS = PROJECTS.map((p) => p.slug) as ProjectSlug[];
+
+export const projectBySlug = (slug: string): ProjectDef | undefined =>
+  (PROJECTS as readonly ProjectDef[]).find((p) => p.slug === slug);
+
+/** The four on the thread, then the rest. */
+export const STATION_PROJECTS = (PROJECTS as readonly ProjectDef[]).filter((p) => p.station);
+export const INDEX_PROJECTS = (PROJECTS as readonly ProjectDef[]).filter((p) => !p.station);
