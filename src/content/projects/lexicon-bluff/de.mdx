@@ -1,0 +1,57 @@
+---
+title: "Lexicon Bluff"
+headline: "Ein Echtzeit-Partyspiel fürs Handy: Einer kennt die echte Bedeutung eines seltenen Worts, alle anderen erfinden eine."
+description: "Lexicon Bluff von Constantin Metz: ein Echtzeit-Bluffspiel mit seltenen Wörtern fürs Handy, mit Fastify und Socket.IO, geheimen Antworten und Reconnects."
+role: "Solo · Spieldesign, Server, Handy-UI, Deployment"
+stack: ["TypeScript", "React 19", "Vite", "Fastify", "Socket.IO", "Zod", "Tailwind CSS", "Docker"]
+facts:
+  - { value: "52.218", label: "seltene Wörter im Stapel" }
+  - { value: "3–12", label: "Spieler pro Raum" }
+  - { value: "45 s", label: "Schonfrist bei Verbindungsabbruch" }
+  - { value: "34", label: "automatisierte Tests" }
+---
+
+## Das Problem
+
+Am Tisch ist das Spiel simpel, man kennt es als „Nobody is perfect“ oder Balderdash: Jemand liest ein obskures Wort vor, alle schreiben eine erfundene Bedeutung auf, die echte kommt dazu, und dann wird abgestimmt. Auf dem Handy ist das Schwierige die Geheimhaltung. Hält der Browser den kompletten Spielstand, kann jeder mit den Entwicklertools die Lösung lesen. Und Handys verlieren ständig die Verbindung: Ein gesperrter Bildschirm oder eine Fahrt im Aufzug darf niemanden den Platz oder die Punkte kosten.
+
+Ich wollte eine Version, für die man nur einen Link braucht. Keine Accounts, keine App, kein externer Realtime-Dienst.
+
+## Was ich gebaut habe
+
+Lexicon Bluff läuft unter [lexicon.pergata.com](https://lexicon.pergata.com/). Eine Person eröffnet einen Raum und teilt einen Code aus vier Buchstaben, einen Link oder einen QR-Code. In jeder Runde bekommt der Vorleser drei seltene Wörter angeboten, kann alle drei gegen neue tauschen und wählt eins aus. Alle anderen schreiben eine glaubwürdige Fälschung. Die echte Definition wird in den Stimmzettel gemischt, dann stimmt der Raum ab. Wer richtig tippt, bekommt einen Punkt; jede Stimme für einen Bluff bringt dessen Autor einen Punkt.
+
+Es gibt zwei Abstimmungsmodi. Im Bildschirmmodus sieht jedes Handy den ganzen Stimmzettel. Im Vorlesemodus, der Standard ist, gehen die Texte nur an den Vorleser, der sie vorträgt, und alle anderen bekommen große Buchstaben-Buttons. Das Spiel ist einfach besser, wenn man sich ansieht statt aufs Display.
+
+Das Frontend ist React 19 mit Vite, Tailwind und Motion, zuerst fürs Handy gestaltet. Das Backend besteht aus Fastify und Socket.IO in einem einzigen Node-Prozess, der auch die gebaute App ausliefert, verpackt in ein Docker-Image mit Healthcheck. Die Wortliste wird generiert: Ein Skript nimmt den Project-Gutenberg-Text von Webster's Unabridged Dictionary, wirft die 10.000 häufigsten englischen Wörter heraus, behält Definitionen mit 5 bis 25 Wörtern und normalisiert sie.
+
+## Die schwierigen Teile
+
+**Geheimnisse bleiben auf dem Server.** Der Server steuert jeden Übergang: Lobby, Wortwahl, Schreiben, Abstimmung, Auflösung, Punktestand. Clients bekommen den eigentlichen Spielstand nie zu sehen. Vor jedem Broadcast baut der Server für jeden Spieler eine eigene Sicht. Nur der Vorleser sieht die Wortauswahl und die echte Definition, Einsendungen bleiben bis zur Abstimmung verborgen, und wer was geschrieben und gewählt hat, erscheint erst bei der Auflösung. So sieht der Stimmzettel-Teil in `server/game/project-state.ts` aus:
+
+```ts
+let ballot: BallotOption[] = [];
+if (state.status === "VOTING") {
+  const showText = state.settings.votingMode === "SCREEN" || isReader;
+  ballot = room.currentBallot.map((entry) => ({
+    id: entry.id,
+    label: entry.label,
+    ...(showText ? { text: entry.text } : {}),
+    ...(entry.authorId === playerId ? { authorId: playerId } : {}),
+  }));
+} else if (isRevealed && room.currentResult) {
+  ballot = room.currentResult.ballot.map((entry) => ({ ...entry }));
+}
+```
+
+Jeder Spieler erfährt, welcher Eintrag sein eigener ist, und sonst nichts. Im Vorlesemodus sieht niemand die Texte, ohne diesen Hinweis wüsste man also nicht, welcher Buchstabe der eigene Bluff ist. Das Handy deaktiviert ihn, und die Engine lehnt Stimmen für den eigenen Text ohnehin ab.
+
+**Reconnects, die die Runde nicht zerstören.** Jeder Browser speichert eine feste Spieler-ID und den aktuellen Raum im Local Storage und tritt automatisch wieder bei, sobald der Socket neu verbunden ist. Der Server ordnet Sockets einem Spieler zu, zwei Tabs zählen also als ein Platz. Bricht der letzte Socket eines Spielers weg, startet ein Timer über 45 Sekunden; wer zurückkommt, stoppt ihn. Läuft er ab, hängt das Ergebnis von der Phase ab. In der Lobby fliegt der Spieler raus. Fehlt der Vorleser, beginnt eine neue Runde mit einem neuen Vorleser. Alle anderen werden zu Zuschauern, und die Engine prüft neu, ob alle aktiven Spieler geschrieben oder abgestimmt haben. So endet die Runde, ohne auf ein Handy in irgendeiner Hosentasche zu warten.
+
+**Ein Neustart kostet keine Punkte.** Jeder Broadcast schreibt außerdem einen Snapshot aller Räume in eine JSON-Datei, erst in eine temporäre Datei und dann per Rename, damit ein Absturz keine halbe Datei hinterlässt. Beim Start stellt der Server die Räume wieder her, markiert alle als getrennt und startet ihre Timer. Ein Deployment mitten im Spiel kostet die Spieler einen Reconnect, nicht ihren Punktestand.
+
+Die Tests steuern die Engine direkt an und spielen außerdem komplette Runden in beiden Modi gegen einen echten Server mit echten Socket.IO-Clients.
+
+## Stand
+
+Online und spielbar. Der Zustand der Räume liegt in einem Prozess und einer Datei, deshalb läuft das Spiel als einzelne Instanz; zum Skalieren bräuchte es geteilten Speicher und einen Socket.IO-Adapter. Gespielt wird nur auf Englisch. Das Repository beginnt mit einer Skizze vom Januar 2024, die schon Deutsch vorsah, dafür fehlt aber eine deutsche Wortliste mit sauberer Lizenz. Auch die Liste häufiger Wörter, die beim Filtern hilft, ist nur für private und wissenschaftliche Nutzung freigegeben und müsste vor jeder kommerziellen Nutzung ersetzt werden.

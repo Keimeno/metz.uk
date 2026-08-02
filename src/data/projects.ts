@@ -49,6 +49,13 @@ export interface ProjectDef {
 
 export const PROJECTS = [
   {
+    slug: "lexicon-bluff",
+    years: "2026",
+    tint: "#ff8f70",
+    links: [{ kind: "live", href: "https://lexicon.pergata.com/", label: "lexicon.pergata.com" }],
+    schema: { type: "WebApplication", category: "GameApplication" },
+  },
+  {
     slug: "segno",
     years: "2020",
     tint: "#8fb4ff",
