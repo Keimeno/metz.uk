@@ -56,6 +56,13 @@ export const PROJECTS = [
     schema: { type: "WebApplication", category: "GameApplication" },
   },
   {
+    slug: "carcost",
+    years: "2026",
+    tint: "#9fd3c7",
+    links: [],
+    schema: { type: "WebApplication", category: "FinanceApplication" },
+  },
+  {
     slug: "segno",
     years: "2020",
     tint: "#8fb4ff",

@@ -1,0 +1,43 @@
+---
+title: "CarCost Germany"
+headline: "A total-cost-of-ownership calculator for cars in Germany: cash, loan or lease, company-car tax and break-even."
+description: "CarCost Germany by Constantin Metz: compares the full cost of cars in Germany, bought, financed or leased, with the 1 % company-car rule, break-even and CO₂."
+role: "Solo · cost model, UI, EN/DE, export, PWA"
+stack: ["TypeScript", "React 19", "Vite", "Tailwind CSS", "Recharts", "jsPDF", "Workbox", "Vitest"]
+facts:
+  - { value: "79", label: "car presets" }
+  - { value: "3", label: "ways to pay: cash, loan, lease" }
+  - { value: "83", label: "automated tests" }
+  - { value: "2", label: "languages" }
+---
+
+## The problem
+
+The list price is the least useful number when you buy a car. Over a few years, depreciation, fuel or electricity, insurance, tax, TÜV, tyres, parking and interest add up to far more than the gap between two price tags. Germany adds another fork: a company car is taxed through the 1 % rule, and that can change which car is cheapest. I wanted one place to compare several cars on the same assumptions, including how each one is paid for.
+
+## What I built
+
+CarCost Germany is a single-page app. You add as many cars as you like, from 79 presets or by hand, and each one can be bought outright, financed or leased. It shows total cost, monthly cost and cost per kilometre side by side, plus:
+
+- a break-even chart that finds the month a cheaper car's running costs catch up with a pricier one;
+- sensitivity analysis over fuel price, distance, interest rate and holding period;
+- a financing optimiser for cash against a loan, loan duration, rate and down payment;
+- CO₂ over the holding period, from emission factors per litre or kWh;
+- a company-car calculator for the 1 % rule;
+- PDF, CSV and PNG export, and share links that carry the whole comparison.
+
+Everything runs in the browser. It installs as a PWA and caches itself for offline use, and it can pull live fuel prices near you from the Tankerkönig API. The interface is in English and German, with a dark mode.
+
+## The hard parts
+
+**One yardstick for cash, loan and lease.** The three only compare fairly if they answer the same question: what did this car cost me while I had it? For a loan, the engine amortises month by month and counts only the interest paid during ownership, so selling before the loan ends doesn't charge you interest you never paid. A lease has no depreciation; its cost is the deposit, the monthly rate and any kilometres over the cap. For bought cars, depreciation follows age-based rates, 20 % in the first year falling to 3 % for old cars, with a surcharge above 150,000 and 200,000 km, unless you enter your own resale value.
+
+**Opportunity cost, measured relatively.** Money tied up in a car could have been invested. Charging every car an absolute opportunity cost penalises all of them and tells you little. So the engine measures each car against the cheapest one in the comparison: the extra down payment, the extra monthly instalment and the extra running costs, each compounded at your chosen rate over the holding period. Totals, yearly breakdowns and the break-even chart all use the same figures.
+
+**The 1 % rule.** For a company car, the taxable benefit per month is a percentage of the gross list price, not of what was actually paid. The calculator applies 1 % for combustion cars, 0.25 % for electric cars up to a list price of 70,000 €, 0.5 % for pricier EVs and hybrids, plus 0.03 % of the list price per kilometre of one-way commute. That benefit is taxed at your marginal rate. The calculator keeps the list price as its own input, defaulting to the purchase price, and sets the tax against the running costs an employer would cover.
+
+**Share links without a backend.** A comparison is serialised, stripped of empty fields and LZ-compressed into the URL fragment, so it never reaches a server. The app warns when a link gets longer than 2,000 characters, and a personal Tankerkönig key stays in local storage instead of the link.
+
+## What's next
+
+The cost engine has dozens of tests; the 1 % rule, which still lives inside a React component, is next in line. Germany's company-car rules change often, so the percentages and thresholds move into dated data with tests of their own. The data model will also tell plug-in hybrids that meet the range or emission limits (0.5 %) apart from other hybrids, which it currently treats the same. The depreciation curve is a heuristic by design, which is why a known resale value overrides it.
