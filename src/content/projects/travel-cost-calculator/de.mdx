@@ -1,0 +1,36 @@
+---
+title: "Reisekostenrechner"
+headline: "Ein Reisebudget-Planer mit Was-wäre-wenn-Szenarien: GPT-5 schlägt die Kostenpunkte vor, gerechnet wird in normalem Code."
+description: "Ein Reisekostenrechner von Constantin Metz: Reisen, Szenarien und Vergleiche nebeneinander, mit GPT-5 Structured Output für Schätzungen und Reiserouten."
+role: "Solo · Produkt, API, Frontend"
+stack: ["TypeScript", "React 18", "Vite", "Express", "OpenAI Responses API", "Zod", "Zustand", "Nx"]
+facts:
+  - { value: "4", label: "Endpunkte mit Structured Output" }
+  - { value: "2", label: "GPT-5-Modelle: mini und nano" }
+  - { value: "8", label: "Kostenkategorien" }
+  - { value: "4", label: "Reisen oder Szenarien nebeneinander" }
+---
+
+## Das Problem
+
+Reisebudgets gehen auf zwei Arten schief. Entweder man vergisst ganze Kategorien: das Visum, die Versicherung, die Hotelnacht vor dem frühen Flug. Oder man multipliziert falsch und rechnet das Hotelzimmer pro Person, die Museumstickets aber nur einmal. Ich wollte einen Planer, bei dem die Rechnung schon durch den Aufbau stimmt, und ein Modell, das ergänzt, was ich vergessen würde, ohne die Rechnung je anzufassen.
+
+## Was ich gebaut habe
+
+Eine React-App mit einer kleinen Express-API, in einem Nx-Monorepo mit einer gemeinsamen Typ-Bibliothek. Eine Reise hat Daten, Reisende und Kostenpunkte. Jeder Kostenpunkt fällt pro Tag oder einmalig an, pro Person oder gemeinsam, und gehört zu einer von acht Kategorien. Die Reisedaten ergeben sich aus Hin- und Rückreise, und die App schlägt eine zusätzliche Hotelnacht vor, wenn die Hinreise vor 10 Uhr startet oder die Rückreise zwischen 22 und 5 Uhr ankommt.
+
+Szenarien sind Was-wäre-wenn-Varianten einer Reise. Sie speichern nur geänderte Beträge einzelner Kostenpunkte statt einer Kopie der Reise, „Was, wenn wir das günstigere Hotel nehmen?“ bleibt also mit dem Original verbunden. Bis zu vier Reisen oder Szenarien lassen sich nebeneinander vergleichen, und eine Reise lässt sich als PNG-Karte exportieren.
+
+Das Modell steckt hinter vier Endpunkten. Einer liefert Infos zum Reiseziel: 8 bis 12 vorgeschlagene Kostenpunkte, versteckte Kosten, Trinkgeld-Gepflogenheiten und die Landeswährung. Einer macht aus einer Zeile wie „about 50 euros for souvenirs“ einen Kostenpunkt. Einer prüft, ob ein Betrag für das Ziel plausibel ist. Und einer plant eine Route über mehrere Städte, Tag für Tag. Für die Routen, die anspruchsvollste Aufgabe, nutze ich GPT-5 mini, für die drei kleineren GPT-5 nano. Ist die API nicht erreichbar, greift der Editor auf eingebaute Kostenvorlagen zurück.
+
+## Die schwierigen Teile
+
+**Schemas als Vertrag.** Jede Anfrage und jede Antwort ist ein Zod-Schema in der gemeinsamen Bibliothek. Der Server validiert damit eingehende Requests, und die Antwort-Schemas gehen über `zodTextFormat` in der Responses API an das Modell, sodass `responses.parse` typisierte Objekte zurückgibt statt Text, den man erst parsen muss. Strict Structured Output verlangt, dass jedes Feld vorhanden ist. Die Antwort-Schemas haben deshalb keine optionalen Felder: Ein Wert, den es vielleicht nicht gibt, etwa ein korrigierter Betrag, ist stattdessen nullable. Die Feldbeschreibungen im Schema tragen einen Teil der Anweisungen, etwa „Cost in EUR“ oder wie viele versteckte Kosten aufzulisten sind.
+
+**Regeln, die kein Schema ausdrücken kann.** Ein Schema kann festlegen, dass `perPerson` ein Boolean ist. Es kann nicht sagen, dass man sich ein Hotelzimmer teilt, ein Museumsticket aber nicht. Diese Regeln stehen im System-Prompt: Unterkunft wird immer pro Tag und gemeinsam gerechnet, Essen, Tickets, Touren und Visa pro Person. Wo der Code das Modell prüfen kann, tut er es. Der Prompt bittet darum, keine Kostenpunkte zu wiederholen, die die Reise schon hat, und der Server filtert die Vorschläge trotzdem noch einmal gegen die vorhandenen Bezeichnungen.
+
+**Das Modell bleibt von den Summen fern.** Das Modell schlägt Kostenpunkte vor; die Zahl, mit der man plant, erzeugt es nie. Die Summe einer Reise ist eine einzige Formel über die eigenen Kostenpunkte: der Betrag, mal die Anzahl der Tage, wenn er pro Tag anfällt, mal die Anzahl der Reisenden, wenn er pro Person gilt. Die Kostenschätzung aus der Reiseroute fließt als Ausgangswert in spätere Vorschläge ein, wird aber nie selbst zur Summe.
+
+## Stand
+
+Ein Prototyp vom Februar 2026. Er läuft lokal: Die API-Adresse im Client ist fest auf localhost gesetzt, und es gibt keine Tests. Die Kostenformel existiert zweimal, im Reise-Editor und im Store, und sollte eine einzige getestete Funktion sein. Die Schemas garantieren die Form, nicht den Sinn, ein negativer Betrag ist also immer noch eine gültige Zahl. Die Plausibilitätsprüfung ist auf dem Server und im API-Client umgesetzt, aber die Oberfläche ruft sie noch nirgends auf. Die Vorschläge des Modells selbst durch sie zu schicken, wäre der naheliegende nächste Schritt.

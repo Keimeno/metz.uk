@@ -1,0 +1,36 @@
+---
+title: "Travel cost calculator"
+headline: "A trip budget planner with what-if scenarios, where GPT-5 suggests the cost items and plain code does the maths."
+description: "A travel budget calculator by Constantin Metz: trips, what-if scenarios and side-by-side comparison, with GPT-5 structured output for estimates and itineraries."
+role: "Solo · product, API, frontend"
+stack: ["TypeScript", "React 18", "Vite", "Express", "OpenAI Responses API", "Zod", "Zustand", "Nx"]
+facts:
+  - { value: "4", label: "structured-output endpoints" }
+  - { value: "2", label: "GPT-5 models: mini and nano" }
+  - { value: "8", label: "cost categories" }
+  - { value: "4", label: "trips or scenarios side by side" }
+---
+
+## The problem
+
+Trip budgets go wrong in two ways. You forget whole categories: the visa, the insurance, the hotel night before an early flight. Or you multiply wrongly, counting the hotel room per person and the museum tickets once. I wanted a planner that gets the arithmetic right by construction, and a model that fills in what I'd forget without ever touching the arithmetic.
+
+## What I built
+
+A React app with a small Express API, in an Nx monorepo with a shared types library. A trip has dates, travellers and cost items. Each item is per day or one-off, per person or shared, and belongs to one of eight categories. The trip's dates come from the outbound and return journeys, and the app suggests an extra hotel night when the outbound leaves before 10:00 or the return lands between 22:00 and 05:00.
+
+Scenarios are what-ifs on top of a trip. They store overrides for individual cost items instead of copying the trip, so "what if we take the cheaper hotel" stays linked to the original. Up to four trips or scenarios can be compared side by side, and a trip exports as a PNG card.
+
+The model sits behind four endpoints. One returns destination insights: 8–12 suggested cost items, hidden costs, tipping customs and the local currency. One turns a line like "about 50 euros for souvenirs" into a cost item. One checks whether an amount is plausible for the destination. One plans a day-by-day, multi-city itinerary. Itineraries, the complex planning task, use GPT-5 mini; the three smaller tasks use GPT-5 nano. If the API isn't reachable, the editor falls back to built-in cost templates.
+
+## The hard parts
+
+**Schemas as the contract.** Every request and response shape is a Zod schema in the shared library. The server validates incoming requests with them, and the response schemas go to the model through `zodTextFormat` in the Responses API, so `responses.parse` hands back typed objects instead of text to be parsed. Strict structured output requires every field to be present, so the response schemas have no optional fields: a value that may not exist, such as a corrected amount, is nullable instead. Field descriptions in the schema carry part of the instructions, such as "Cost in EUR" or how many hidden costs to list.
+
+**Rules a schema can't express.** A schema can say `perPerson` is a boolean. It can't say that a hotel room is shared and a museum ticket isn't. Those rules live in the system prompt: accommodation is always per day and shared, while food, tickets, tours and visas are per person. Where the code can check the model, it does. The prompt asks it not to repeat items the trip already has, and the server filters the suggestions against the existing labels anyway.
+
+**Keeping the model away from the totals.** The model proposes items; it never produces the number you budget with. A trip's total is one formula over the user's items: the amount, times the number of days if it's per day, times the number of travellers if it's per person. The itinerary's own cost estimate is passed into later suggestion requests as a baseline, but it never becomes the total.
+
+## Status
+
+A prototype from February 2026. It runs locally: the client's API address is hard-coded to localhost, and there are no tests. The cost formula exists twice, in the trip editor and in the store, and should be one tested function. The schemas guarantee shape, not sense, so a negative amount is still a valid number. The plausibility check is implemented on the server and in the API client, but nothing in the interface calls it yet. Running the model's own suggestions through it would be the obvious next step.

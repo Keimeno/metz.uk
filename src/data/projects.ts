@@ -63,6 +63,13 @@ export const PROJECTS = [
     schema: { type: "WebApplication", category: "FinanceApplication" },
   },
   {
+    slug: "travel-cost-calculator",
+    years: "2026",
+    tint: "#e7c97a",
+    links: [],
+    schema: { type: "WebApplication", category: "TravelApplication" },
+  },
+  {
     slug: "segno",
     years: "2020",
     tint: "#8fb4ff",
