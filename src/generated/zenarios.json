@@ -1,0 +1,146 @@
+{
+  "provenance": {
+    "source": "Zenarios engine, run on the app's built-in example plan",
+    "plan": {
+      "en": "Example: The Beckers",
+      "de": "Beispiel: Familie Becker"
+    },
+    "scenario": "Keep renting",
+    "asOf": "2026-10-01",
+    "engineVersion": "4.0.0",
+    "marketModelVersion": 1,
+    "inputHash": "1e624e75d9d8ab",
+    "seed": 4024631049,
+    "appCommit": "412c883"
+  },
+  "people": [
+    {
+      "role": "self",
+      "name": "Jan",
+      "born": "1988-07"
+    },
+    {
+      "role": "partner",
+      "name": "Mira",
+      "born": "1990-07"
+    }
+  ],
+  "startMonth": "2026-10",
+  "horizonMonths": 645,
+  "trials": 1000,
+  "today": 132370,
+  "end": 2415398,
+  "successRate": 0.997,
+  "endP10": 903774,
+  "endP50": 2643053,
+  "endP90": 6626381,
+  "milestones": [
+    {
+      "id": "ms_retirement-self",
+      "index": 345,
+      "name": {
+        "en": "Jan retires",
+        "de": "Jan geht in Rente"
+      },
+      "template": null
+    },
+    {
+      "id": "ms_retirement-partner",
+      "index": 369,
+      "name": {
+        "en": "Mira retires",
+        "de": "Mira geht in Rente"
+      },
+      "template": null
+    },
+    {
+      "id": "ms_fire",
+      "index": 370,
+      "name": {
+        "en": "Financial independence",
+        "de": "Finanzielle Unabhängigkeit"
+      },
+      "template": null
+    },
+    {
+      "id": "ms_mira-new-job",
+      "index": 24,
+      "name": {
+        "en": "Mira works full time again",
+        "de": "Mira works full time again"
+      },
+      "template": null
+    },
+    {
+      "id": "ms_upgrade-your-lifestyle",
+      "index": 24,
+      "name": {
+        "en": "Spending grows with pay",
+        "de": "Spending grows with pay"
+      },
+      "template": null
+    },
+    {
+      "id": "ms_buy-a-car",
+      "index": 36,
+      "name": {
+        "en": "Buy a car",
+        "de": "Buy a car"
+      },
+      "template": null
+    },
+    {
+      "id": "ms_buy-a-car-2",
+      "index": 156,
+      "name": {
+        "en": "Next car",
+        "de": "Next car"
+      },
+      "template": null
+    },
+    {
+      "id": "ms_buy-a-car-3",
+      "index": 276,
+      "name": {
+        "en": "Next car",
+        "de": "Next car"
+      },
+      "template": null
+    },
+    {
+      "id": "ms_buy-a-car-4",
+      "index": 396,
+      "name": {
+        "en": "Next car",
+        "de": "Next car"
+      },
+      "template": null
+    },
+    {
+      "id": "ms_gift-to-family",
+      "index": 120,
+      "name": {
+        "en": "Help with the first child’s studies",
+        "de": "Help with the first child’s studies"
+      },
+      "template": null
+    },
+    {
+      "id": "ms_gift-to-family-2",
+      "index": 156,
+      "name": {
+        "en": "Help with the second child’s studies",
+        "de": "Help with the second child’s studies"
+      },
+      "template": null
+    }
+  ],
+  "fire": {
+    "withdrawalRateBp": 350,
+    "reachedIndex": 370,
+    "targetAtStartMinor": 156537257,
+    "spendingAtStartMinor": 456567,
+    "coverageAtStartBp": 776,
+    "coverageAtEndBp": 14068
+  }
+}
