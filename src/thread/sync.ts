@@ -1,0 +1,229 @@
+// Keeps the HTML in step with the thread:
+// - panels reveal on their cues (CSS reads one `--v` per panel and staggers the words itself),
+// - mono kickers decode once when their panel arrives,
+// - counters climb with their cue,
+// - labels follow points of the figures,
+// - planes (the app screenshot) are mapped into the 3D scene with a CSS matrix3d.
+// Only writes styles, never reads layout per frame.
+
+import { multiply, mat4, project, cross, normalize, type Mat4, type Vec3 } from "./math";
+import type { Plane } from "./stations/kit";
+import { CUES, PANELS, cue, visibility, type PanelId } from "./timeline";
+
+interface PanelEl {
+  el: HTMLElement;
+  id: PanelId;
+  v: number;
+  scramble: { el: HTMLElement; text: string; start: number }[];
+}
+
+interface AnchorEl {
+  el: HTMLElement;
+  id: string;
+  cue: PanelId;
+  x: number;
+  y: number;
+  v: number;
+  left: boolean;
+}
+
+interface PlaneEl {
+  el: HTMLElement;
+  id: string;
+  cue: PanelId;
+  v: number;
+  w: number;
+  h: number;
+}
+
+interface CounterEl {
+  el: HTMLElement;
+  cue: keyof typeof CUES;
+  to: number;
+  shown: string;
+}
+
+const isPanel = (id: string): id is PanelId => id in PANELS;
+const GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/+#";
+const SCRAMBLE_MS = 700;
+/** Counters format like the server-rendered text: "1,000" in English, "1.000" in German. */
+const fmt = new Intl.NumberFormat(document.documentElement.lang || "en");
+
+/** Wraps each word of `el` in spans the CSS can stagger, keeping the text readable as-is. */
+function splitWords(el: HTMLElement) {
+  if (el.dataset.split) return;
+  el.dataset.split = "1";
+  const words = (el.textContent ?? "").trim().split(/\s+/);
+  el.textContent = "";
+  words.forEach((word, i) => {
+    const outer = document.createElement("span");
+    outer.className = "w";
+    const inner = document.createElement("span");
+    inner.textContent = word;
+    inner.style.setProperty("--i", String(i));
+    outer.append(inner);
+    el.append(outer, i < words.length - 1 ? " " : "");
+  });
+}
+
+export class DomSync {
+  private panels: PanelEl[] = [];
+  private anchors: AnchorEl[] = [];
+  private planes: PlaneEl[] = [];
+  private counters: CounterEl[] = [];
+  private m = mat4();
+  private tmp = mat4();
+  private screen = mat4();
+
+  constructor(
+    root: ParentNode,
+    private points: () => Record<string, Vec3>,
+    private planeDefs: () => Record<string, Plane>,
+    /** False for still renders: text appears without decoding. */
+    private animate = true
+  ) {
+    root.querySelectorAll<HTMLElement>("[data-cue]").forEach((el) => {
+      const id = el.dataset.cue!;
+      if (!isPanel(id)) return;
+      if (el.dataset.anchor) {
+        if (el.hasAttribute("data-words")) splitWords(el);
+        el.querySelectorAll<HTMLElement>("[data-words]").forEach(splitWords);
+        this.anchors.push({ el, id: el.dataset.anchor, cue: id, x: NaN, y: NaN, v: -1, left: false });
+      } else if (el.dataset.plane) {
+        this.planes.push({ el, id: el.dataset.plane, cue: id, v: -1, w: 1, h: 1 });
+      } else {
+        el.querySelectorAll<HTMLElement>("[data-words]").forEach(splitWords);
+        const scramble = Array.from(el.querySelectorAll<HTMLElement>("[data-scramble]")).map((s) => ({
+          el: s,
+          text: s.textContent ?? "",
+          start: -1,
+        }));
+        this.panels.push({ el, id, v: -1, scramble });
+      }
+    });
+    root.querySelectorAll<HTMLElement>("[data-count]").forEach((el) => {
+      const c = el.dataset.count as keyof typeof CUES;
+      if (c in CUES) this.counters.push({ el, cue: c, to: Number(el.dataset.countTo) || 0, shown: "" });
+    });
+    this.measure();
+  }
+
+  /** Element sizes for the planes; call on resize. */
+  measure() {
+    for (const p of this.planes) {
+      p.w = p.el.offsetWidth || 1;
+      p.h = p.el.offsetHeight || 1;
+    }
+  }
+
+  update(t: number, now: number, viewProj: Mat4, width: number, height: number) {
+    for (const p of this.panels) {
+      const v = Math.round(visibility(t, PANELS[p.id]) * 1000) / 1000;
+      if (v !== p.v) {
+        if (p.v <= 0 && v > 0 && this.animate) for (const s of p.scramble) s.start = now;
+        p.v = v;
+        p.el.style.setProperty("--v", String(v));
+        p.el.style.visibility = v === 0 ? "hidden" : "visible";
+      }
+      for (const s of p.scramble) this.scramble(s, now);
+    }
+
+    for (const c of this.counters) {
+      const text = fmt.format(Math.round(c.to * cue(t, CUES[c.cue])));
+      if (text !== c.shown) {
+        c.shown = text;
+        c.el.textContent = text;
+      }
+    }
+
+    const pts = this.points();
+    for (const a of this.anchors) {
+      const point = pts[a.id];
+      if (!point) continue;
+      const c = project(viewProj, point);
+      const inFront = c[3] > 0.2;
+      let v = inFront ? visibility(t, PANELS[a.cue]) : 0;
+      v = Math.round(v * 100) / 100;
+      if (v > 0) {
+        const x = Math.round(((c[0] / c[3]) * 0.5 + 0.5) * width * 2) / 2;
+        const y = Math.round((1 - ((c[1] / c[3]) * 0.5 + 0.5)) * height * 2) / 2;
+        if (x !== a.x || y !== a.y) {
+          a.x = x;
+          a.y = y;
+          a.el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+        }
+        // Near the right edge the text goes to the left of its dot, so it never runs off screen.
+        const left = x > width * 0.68 && !a.el.dataset.fixedSide;
+        if (left !== a.left) {
+          a.left = left;
+          a.el.classList.toggle("label--left", left);
+        }
+      }
+      if (v !== a.v) {
+        a.v = v;
+        a.el.style.opacity = String(Math.min(1, v * 1.6));
+        a.el.style.setProperty("--v", String(v));
+        a.el.style.visibility = v === 0 ? "hidden" : "visible";
+      }
+    }
+
+    const defs = this.planeDefs();
+    for (const p of this.planes) {
+      const def = defs[p.id];
+      if (!def) continue;
+      const centre = project(viewProj, def.center);
+      const v = centre[3] > 1 ? Math.round(visibility(t, PANELS[p.cue]) * 100) / 100 : 0;
+      if (v !== p.v) {
+        p.v = v;
+        p.el.style.setProperty("--v", String(v));
+        p.el.style.visibility = v === 0 ? "hidden" : "visible";
+      }
+      if (v > 0) p.el.style.transform = this.planeMatrix(def, p.w, p.h, viewProj, width, height);
+    }
+  }
+
+  /** A CSS matrix3d that maps an element of w × h px onto `plane` as the camera sees it. */
+  private planeMatrix(plane: Plane, w: number, h: number, viewProj: Mat4, width: number, height: number) {
+    const { center, right, up } = plane;
+    const sx = plane.width / w;
+    const sy = plane.height / h;
+    const normal = normalize(cross(right, up));
+    const corner: Vec3 = [
+      center[0] - right[0] * (plane.width / 2) + up[0] * (plane.height / 2),
+      center[1] - right[1] * (plane.width / 2) + up[1] * (plane.height / 2),
+      center[2] - right[2] * (plane.width / 2) + up[2] * (plane.height / 2),
+    ];
+    // Element px → world.
+    const model = mat4();
+    model.set([
+      right[0] * sx, right[1] * sx, right[2] * sx, 0,
+      -up[0] * sy, -up[1] * sy, -up[2] * sy, 0,
+      normal[0] * 0.001, normal[1] * 0.001, normal[2] * 0.001, 0,
+      corner[0], corner[1], corner[2], 1,
+    ]);
+    // Clip space → CSS px (y down).
+    const s = this.screen;
+    s.set([width / 2, 0, 0, 0, 0, -height / 2, 0, 0, 0, 0, 1, 0, width / 2, height / 2, 0, 1]);
+    multiply(this.tmp, viewProj, model);
+    multiply(this.m, s, this.tmp);
+    return `matrix3d(${Array.from(this.m, (n) => n.toFixed(6)).join(",")})`;
+  }
+
+  private scramble(s: { el: HTMLElement; text: string; start: number }, now: number) {
+    if (s.start < 0) return;
+    const k = (now - s.start) / SCRAMBLE_MS;
+    if (k >= 1) {
+      s.el.textContent = s.text;
+      s.start = -1;
+      return;
+    }
+    const n = s.text.length;
+    let out = "";
+    for (let i = 0; i < n; i++) {
+      const ch = s.text[i];
+      const settle = (i / n) * 0.7 + 0.25;
+      out += k >= settle || ch === " " || ch === "·" ? ch : GLYPHS[(Math.random() * GLYPHS.length) | 0];
+    }
+    s.el.textContent = out;
+  }
+}
