@@ -1,0 +1,61 @@
+---
+// The thread on its own while it is being built: each station's scroll length and the name it
+// writes over, nothing else. Not linked from anywhere. ?debug, ?t=, ?hold=, ?freeze, ?tier= and
+// ?skip= work here.
+import "@fontsource-variable/geist/wght.css";
+import "../../styles/global.css";
+import { STATIONS } from "../../thread/beats";
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Thread lab · metz.uk</title>
+  </head>
+  <body>
+    <main>
+      {
+        STATIONS.map((s) => (
+          <section class="station" data-station={s.id} style={`--beats:${s.beats}`}>
+            {s.id === "intro" && (
+              <div class="intro">
+                <h1 data-name>Constantin Metz</h1>
+              </div>
+            )}
+          </section>
+        ))
+      }
+    </main>
+    <script>
+      import { bootThread } from "../../thread/boot";
+
+      bootThread();
+    </script>
+  </body>
+</html>
+
+<style>
+  .station {
+    position: relative;
+    height: calc(var(--beats) * 100svh);
+  }
+  .intro {
+    position: sticky;
+    top: 0;
+    display: grid;
+    place-content: center;
+    height: 100vh;
+    height: 100lvh;
+  }
+  h1 {
+    margin: 0;
+    font-size: clamp(44px, 9.2vw, 156px);
+    font-weight: 500;
+    letter-spacing: -0.045em;
+    line-height: 0.95;
+    white-space: nowrap;
+  }
+</style>
