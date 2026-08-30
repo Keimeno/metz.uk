@@ -1,0 +1,34 @@
+{
+  "_source": "PaperScores pipeline output (apps/web/.debug/02_scorecard_response.json, Keimeno/paperscores). The paper is deliberately not named on the site.",
+  "design": "NarrativeReview",
+  "family": "Synthesis",
+  "overall": 30,
+  "_overall": "The score PaperScores shows: computed in code by apps/web/lib/score-calculator.ts from the subscores with the Synthesis family's weights, statistics masked out (29.6 → 30). The model's own suggestion (overallSuggested) was 45; PaperScores doesn't display it.",
+  "subscores": {
+    "methodsRigour": 20,
+    "statisticalValidity": 15,
+    "transparencyRepro": 10,
+    "biasIntegrity": 40,
+    "externalValidity": 30,
+    "significanceNovelty": 65
+  },
+  "labels": {
+    "methodsRigour": "Methods",
+    "statisticalValidity": "Statistics",
+    "transparencyRepro": "Transparency",
+    "biasIntegrity": "Bias & integrity",
+    "externalValidity": "External validity",
+    "significanceNovelty": "Significance"
+  },
+  "flags": {
+    "pHackingRisk": "green",
+    "outcomeSwitchingRisk": "green",
+    "coiConcern": "green",
+    "dataIntegrityConcern": "green"
+  },
+  "evidence": [
+    "pp. 192–196",
+    "pp. 195–201",
+    "pp. 206–207"
+  ]
+}
