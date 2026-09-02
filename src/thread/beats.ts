@@ -9,6 +9,7 @@ export type StationId = "intro" | "zenarios" | "signals" | "paperscores" | "orig
 export const STATIONS: { id: StationId; beats: number }[] = [
   { id: "intro", beats: 1 },
   { id: "zenarios", beats: 3.8 },
+  { id: "paperscores", beats: 2.6 },
   { id: "end", beats: 1.25 },
 ];
 
