@@ -10,6 +10,7 @@ export const STATIONS: { id: StationId; beats: number }[] = [
   { id: "intro", beats: 1 },
   { id: "zenarios", beats: 3.8 },
   { id: "paperscores", beats: 2.6 },
+  { id: "origins", beats: 3.0 },
   { id: "end", beats: 1.25 },
 ];
 

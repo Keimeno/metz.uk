@@ -4,6 +4,7 @@
 
 import { at, type Cue, type StationId } from "./beats";
 import * as intro from "./stations/intro";
+import * as origins from "./stations/origins";
 import * as paperscores from "./stations/paperscores";
 import * as zenarios from "./stations/zenarios";
 
@@ -14,6 +15,7 @@ export const STATION_MODULES = [
   intro.intro,
   zenarios.zenarios,
   paperscores.paperscores,
+  origins.origins,
 ];
 
 const prefixed = (prefix: string, cues: Record<string, Cue>) =>
@@ -24,6 +26,7 @@ export const CUES: Record<string, Cue> = {
   ...prefixed("intro", intro.CUES),
   ...prefixed("zen", zenarios.CUES),
   ...prefixed("ps", paperscores.CUES),
+  ...prefixed("org", origins.CUES),
   "end.overview": at("end", 0.05, 0.5),
 };
 
@@ -32,6 +35,7 @@ export const PANELS = {
   ...intro.PANELS,
   ...zenarios.PANELS,
   ...paperscores.PANELS,
+  ...origins.PANELS,
   "end.next": at("end", 0.35, 99),
 } as const satisfies Record<string, Cue>;
 
@@ -41,4 +45,5 @@ export type PanelId = keyof typeof PANELS;
 export const CHAPTERS: { id: string; station: StationId }[] = [
   { id: "zenarios", station: "zenarios" },
   { id: "paperscores", station: "paperscores" },
+  { id: "origins", station: "origins" },
 ];
