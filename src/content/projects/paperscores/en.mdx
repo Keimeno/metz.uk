@@ -1,0 +1,59 @@
+---
+title: "PaperScores"
+headline: "An AI reviewer that grades medical papers on six dimensions and anchors its findings to pages of the PDF."
+description: "PaperScores by Constantin Metz: an AI reviewer that scores medical papers 0–100 on six dimensions, with design-specific checklists and page-anchored evidence."
+role: "Solo · scoring design, pipeline, harvester, web app"
+stack: ["TypeScript", "Next.js 15", "React 19", "Nx", "Prisma", "PostgreSQL", "OpenAI Responses API", "Cloudflare R2"]
+facts:
+  - { value: "6", label: "scored dimensions" }
+  - { value: "106", label: "checklist questions in 10 design modules" }
+  - { value: "7", label: "paper families, each weighted differently" }
+  - { value: "104", label: "commits, Oct 2025 – Apr 2026" }
+---
+
+## The problem
+
+Most people who read a medical paper can't judge its methods, and most people who can don't have the time. The tools exist: CONSORT for trials, PRISMA for reviews, STROBE for observational studies, Cochrane's risk-of-bias tool. Applying them takes training and time.
+
+I wanted a first pass that a clinician or a curious patient can read in two minutes: a structured appraisal where every judgement says where in the paper it comes from, so it can be checked rather than trusted.
+
+## What I built
+
+PaperScores is an Nx monorepo with two apps. A harvester (Fastify, Prisma, PostgreSQL) draws random samples of English-language medical papers from OpenAlex, optionally above a citation count, and a Next.js 15 site shows each paper with a scorecard generated on demand: the PDF goes to OpenAI's Responses API together with the assessment prompt, and the answer has to fit a schema.
+
+That schema is a Zod object, enforced through strict structured outputs. The model first classifies the paper into one of 19 study designs, grouped into seven families (clinical, preclinical, synthesis, guideline, method, protocol, opinion). It fills a study block (sample size, randomisation, blinding, analysis set, the main effect with its confidence interval verbatim), then only the checklist for that design, then six subscores from 0 to 100:
+
+- **Methods**: prespecified plan, sampling, randomisation, allocation concealment, blinding, adherence.
+- **Statistics**: model choice and assumptions, confidence intervals over p-values, multiplicity.
+- **Transparency**: preregistration, availability of data, code and materials.
+- **Bias & integrity**: selective reporting, outcome switching, conflicts of interest, the sponsor's role.
+- **External validity**: population, setting, attrition, transportability.
+- **Significance**: contribution against prior work.
+
+Four integrity flags (p-hacking, outcome switching, conflicts of interest, internal inconsistencies in the data) are green, amber or red, with rules in the prompt. A red p-hacking flag, for example, needs p-values clustered just under 0.05 without correction, or undisclosed subgroups or stopping rules.
+
+Each checklist draws on the reporting standard for its design. The trial module is aligned with CONSORT, and its questions cover the five domains of Cochrane's RoB 2: randomisation and allocation concealment, deviations from the intended intervention (blinding, adherence, the analysis set), missing outcome data, measurement of outcomes (who was blinded), and selection of the reported result (prespecified outcomes, registry evidence). Reviews draw on PRISMA, with GRADE and publication bias; observational studies on STROBE and ROBINS; diagnostic, prognostic, economic and preclinical work on STARD, TRIPOD, CHEERS and ARRIVE.
+
+Every check carries a status (yes, no, unclear, not applicable), a note of at most 240 characters and an evidence anchor: a page, figure or table. The paper page shows the anchor next to the judgement.
+
+## The hard parts
+
+**Keeping the total out of the model's hands.** Ask an LLM for "a score out of 100" and you get a plausible number that nobody can trace back to anything. So the model only fills subscores and facts; the overall is computed in code, as a weighted mean whose weights depend on the family. Reviews weigh transparency and bias more than trials do, and dimensions that don't apply are masked out with the rest renormalised, such as statistics for reviews and guidelines. Opinion pieces and protocols get no grade at all. The same subscores always give the same score.
+
+The scorecard shown on this site is a real output for a narrative review that I keep anonymous: Methods 20, Statistics 15, Transparency 10, Bias & integrity 40, External validity 30, Significance 65, every flag green, and findings anchored to page ranges. An earlier schema version also let the model suggest an overall for audit, and it said 45. The code, with statistics masked for a review, gives 30. The low methods score is expected: a narrative review has no protocol to judge.
+
+**Penalties that counted twice.** The first calculator subtracted points for amber and red flags and capped the score; a red data-integrity flag capped it at 55. But the rubric already tells the model to reflect those risks in the subscores, so a flagged paper paid twice. In November 2025 I removed the penalties and caps. Flags are shown, not double-counted.
+
+**Output tokens are the bill.** The first schema had every design module as a fixed object, so the model answered all 88 checklist questions of nine modules for every paper, most of them "not applicable". I turned each module into an array of keyed checks: the model fills the one that fits and returns empty arrays for the rest, so the output grows with the design, not with the schema. Notes are capped at 240 characters, and requests carry a prompt cache key.
+
+**Guarding against invention.** Strict structured outputs mean the model can't add keys, misspell a status or drop a field; every enum is closed. The prompt asks for explicit statements only, "unclear" when something applicable isn't reported, no invented registry IDs, and flags based on the paper and its supplement alone. The model may abstain when the text is too incomplete to score. What PaperScores does not do yet is check the anchors: nothing verifies that page 12 really says what the note claims. A reader can, which is the point of the anchors, but the code doesn't.
+
+**Getting the PDF at all.** OpenAlex marks a paper as open access and gives a PDF link, but the link can also lead to a landing page or a 403. The harvester tests each link with a range request for the first bytes and the content type, falls back to a headless browser that looks for the `%PDF-` signature, and marks the paper as failed otherwise. Only papers with a reachable PDF can be scored. A global concurrency limit keeps a large harvest from opening thousands of connections at once.
+
+## What's next
+
+Verify evidence mechanically: extract the text of every page myself, ask for a short verbatim quote with each anchor, and drop or flag any finding whose quote isn't on the cited page. Before showing a single grade, measure agreement with human appraisers on trials that have published Cochrane risk-of-bias judgements. And keep the generation status in the database instead of process memory, so a restart doesn't lose track of running jobs.
+
+## Status
+
+The harvester, the schema and the pipeline score papers end to end. OpenAI is the provider implemented so far, with Anthropic and Google stubbed in. The public site is offline for now and the repository is private; the last commit is from April 2026.

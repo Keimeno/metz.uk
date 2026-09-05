@@ -49,6 +49,14 @@ export interface ProjectDef {
 
 export const PROJECTS = [
   {
+    slug: "paperscores",
+    years: "2025–2026",
+    station: "paperscores",
+    tint: "#73d9fa",
+    links: [],
+    schema: { type: "WebApplication", category: "ReferenceApplication" },
+  },
+  {
     slug: "lexicon-bluff",
     years: "2026",
     tint: "#ff8f70",

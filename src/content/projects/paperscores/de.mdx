@@ -1,0 +1,59 @@
+---
+title: "PaperScores"
+headline: "Ein KI-Gutachter, der medizinische Studien in sechs Dimensionen bewertet und seine Befunde an Seiten des PDFs festmacht."
+description: "PaperScores von Constantin Metz: ein KI-Gutachter bewertet medizinische Studien in sechs Dimensionen von 0 bis 100, mit Design-Checklisten und Seitenbelegen."
+role: "Solo · Bewertungsmodell, Pipeline, Harvester, Web-App"
+stack: ["TypeScript", "Next.js 15", "React 19", "Nx", "Prisma", "PostgreSQL", "OpenAI Responses API", "Cloudflare R2"]
+facts:
+  - { value: "6", label: "bewertete Dimensionen" }
+  - { value: "106", label: "Checklistenfragen in 10 Designmodulen" }
+  - { value: "7", label: "Paper-Familien mit eigener Gewichtung" }
+  - { value: "104", label: "Commits, Okt. 2025 – Apr. 2026" }
+---
+
+## Das Problem
+
+Die meisten, die eine medizinische Studie lesen, können ihre Methodik nicht beurteilen, und die meisten, die es können, haben keine Zeit dafür. Die Werkzeuge gibt es: CONSORT für randomisierte Studien, PRISMA für Reviews, STROBE für Beobachtungsstudien, das Risk-of-Bias-Tool von Cochrane. Sie anzuwenden braucht Übung und Zeit.
+
+Ich wollte einen ersten Durchgang, den eine Ärztin oder ein neugieriger Patient in zwei Minuten lesen kann: eine strukturierte Bewertung, bei der jedes Urteil sagt, woher im Paper es stammt. So lässt es sich prüfen, statt dass man ihm glauben muss.
+
+## Was ich gebaut habe
+
+PaperScores ist ein Nx-Monorepo mit zwei Apps. Ein Harvester (Fastify, Prisma, PostgreSQL) zieht Zufallsstichproben englischsprachiger medizinischer Paper aus OpenAlex, auf Wunsch ab einer Mindestzahl an Zitationen. Eine Next.js-15-Seite zeigt jedes Paper mit einer Scorecard, die auf Anfrage entsteht: Das PDF geht zusammen mit dem Bewertungsprompt an die Responses API von OpenAI, und die Antwort muss in ein Schema passen.
+
+Dieses Schema ist ein Zod-Objekt, durchgesetzt über strikte Structured Outputs. Das Modell ordnet das Paper zuerst einem von 19 Studiendesigns zu, gruppiert in sieben Familien (klinisch, präklinisch, Synthese, Leitlinie, Methode, Protokoll, Meinung). Dann füllt es einen Studienblock aus (Fallzahl, Randomisierung, Verblindung, Analysepopulation, der Haupteffekt samt Konfidenzintervall im Wortlaut), danach nur die Checkliste für dieses Design und schließlich sechs Teilnoten von 0 bis 100:
+
+- **Methodik**: vorab festgelegter Plan, Stichprobe, Randomisierung, verdeckte Zuteilung, Verblindung, Adhärenz.
+- **Statistik**: Modellwahl und Annahmen, Konfidenzintervalle statt p-Werte, Multiplizität.
+- **Transparenz**: Präregistrierung, Verfügbarkeit von Daten, Code und Materialien.
+- **Bias & Integrität**: selektives Berichten, Outcome Switching, Interessenkonflikte, Rolle des Sponsors.
+- **Externe Validität**: Population, Setting, Drop-outs, Übertragbarkeit.
+- **Bedeutung**: Beitrag gegenüber der bisherigen Forschung.
+
+Vier Integritäts-Flags (p-Hacking, Outcome Switching, Interessenkonflikte, interne Widersprüche in den Daten) stehen auf Grün, Gelb oder Rot, nach Regeln im Prompt. Rot bei p-Hacking verlangt zum Beispiel p-Werte, die sich ohne Korrektur knapp unter 0,05 häufen, oder nicht offengelegte Subgruppen oder Abbruchregeln.
+
+Jede Checkliste stützt sich auf den Berichtsstandard ihres Designs. Das Modul für randomisierte Studien orientiert sich an CONSORT, und seine Fragen decken die fünf Domänen von Cochranes RoB 2 ab: Randomisierung und verdeckte Zuteilung, Abweichungen von der geplanten Intervention (Verblindung, Adhärenz, Analysepopulation), fehlende Outcome-Daten, Messung der Outcomes (wer verblindet war) und Auswahl der berichteten Ergebnisse (vorab festgelegte Endpunkte, Registereintrag). Reviews stützen sich auf PRISMA samt GRADE und Publikationsbias, Beobachtungsstudien auf STROBE und ROBINS, diagnostische, prognostische, gesundheitsökonomische und präklinische Arbeiten auf STARD, TRIPOD, CHEERS und ARRIVE.
+
+Jeder Prüfpunkt hat einen Status (ja, nein, unklar, nicht anwendbar), eine Notiz von höchstens 240 Zeichen und einen Beleg: Seite, Abbildung oder Tabelle. Die Paper-Seite zeigt den Beleg direkt neben dem Urteil.
+
+## Die schwierigen Teile
+
+**Die Gesamtnote gehört nicht dem Modell.** Wer ein LLM nach „einer Note von 0 bis 100“ fragt, bekommt eine plausible Zahl, die sich auf nichts zurückführen lässt. Deshalb füllt das Modell nur Teilnoten und Fakten aus; die Gesamtnote rechnet der Code, als gewichtetes Mittel mit Gewichten je Familie. Bei Reviews zählen Transparenz und Bias mehr als bei klinischen Studien, und Dimensionen, die nicht passen, fallen heraus, während der Rest neu normiert wird, etwa die Statistik bei Reviews und Leitlinien. Meinungsbeiträge und Protokolle bekommen gar keine Note. Gleiche Teilnoten ergeben immer dieselbe Gesamtnote.
+
+Die Scorecard auf dieser Seite ist ein echtes Ergebnis für ein narratives Review, das ich anonym halte: Methodik 20, Statistik 15, Transparenz 10, Bias & Integrität 40, externe Validität 30, Bedeutung 65, alle Flags grün, Belege mit Seitenbereichen. Eine frühere Version des Schemas ließ das Modell zur Kontrolle auch eine Gesamtnote vorschlagen; es nannte 45. Der Code, der bei einem Review die Statistik ausblendet, kommt auf 30. Die niedrige Methodiknote ist erwartbar: Ein narratives Review hat kein Protokoll, das man prüfen könnte.
+
+**Abzüge, die doppelt zählten.** Der erste Rechner zog für gelbe und rote Flags Punkte ab und deckelte die Note; ein rotes Flag bei der Datenintegrität begrenzte sie auf 55. Die Rubrik weist das Modell aber schon an, diese Risiken in den Teilnoten abzubilden, also zahlte ein auffälliges Paper doppelt. Im November 2025 habe ich Abzüge und Deckel entfernt. Flags werden angezeigt, aber nicht noch einmal verrechnet.
+
+**Output-Tokens sind die Rechnung.** Im ersten Schema war jedes Designmodul ein festes Objekt, also beantwortete das Modell für jedes Paper alle 88 Fragen aus neun Modulen, die meisten mit „nicht anwendbar“. Ich habe jedes Modul in ein Array aus Prüfpunkten mit Schlüssel umgebaut: Das Modell füllt das passende und gibt für die übrigen leere Arrays zurück. Die Ausgabe wächst so mit dem Design, nicht mit dem Schema. Notizen sind auf 240 Zeichen begrenzt, und die Anfragen tragen einen Prompt-Cache-Key.
+
+**Schutz vor Erfundenem.** Strikte Structured Outputs heißen: Das Modell kann keine Felder hinzufügen, keinen Status falsch schreiben und kein Feld weglassen, jede Aufzählung ist geschlossen. Der Prompt verlangt ausdrückliche Aussagen aus dem Text, „unklar“, wenn etwas Relevantes nicht berichtet ist, keine erfundenen Registernummern und Flags allein auf Basis des Papers und seines Supplements. Ist der Text zu unvollständig, darf sich das Modell enthalten. Was PaperScores noch nicht tut: die Belege prüfen. Nichts stellt sicher, dass auf Seite 12 wirklich steht, was die Notiz behauptet. Wer liest, kann das prüfen, dafür sind die Belege da; der Code tut es nicht.
+
+**Überhaupt an das PDF kommen.** OpenAlex markiert ein Paper als Open Access und liefert einen PDF-Link, doch der führt manchmal auf eine Landingpage oder einen 403. Der Harvester prüft jeden Link mit einer Range-Anfrage auf die ersten Bytes und dem Content-Type, weicht sonst auf einen Headless-Browser aus, der nach der Signatur `%PDF-` sucht, und markiert das Paper andernfalls als fehlgeschlagen. Nur Paper mit erreichbarem PDF lassen sich bewerten. Eine globale Obergrenze für parallele Downloads verhindert, dass eine große Ernte Tausende Verbindungen auf einmal öffnet.
+
+## Wie es weitergeht
+
+Belege maschinell prüfen: den Text jeder Seite selbst extrahieren, zu jedem Beleg ein kurzes wörtliches Zitat verlangen und jeden Befund verwerfen oder markieren, dessen Zitat nicht auf der genannten Seite steht. Bevor eine einzige Note sichtbar wird, die Übereinstimmung mit menschlichen Gutachtern messen, an randomisierten Studien mit veröffentlichten Risk-of-Bias-Urteilen von Cochrane. Und den Status laufender Generierungen in der Datenbank halten statt im Speicher des Prozesses, damit ein Neustart keine Jobs verliert.
+
+## Stand
+
+Harvester, Schema und Pipeline bewerten Paper von Anfang bis Ende. Als Anbieter ist bisher OpenAI implementiert, Anthropic und Google sind vorbereitet. Die öffentliche Seite ist vorerst offline und das Repository privat; der letzte Commit stammt vom April 2026.
