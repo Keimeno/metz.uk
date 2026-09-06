@@ -57,6 +57,26 @@ export const PROJECTS = [
     schema: { type: "WebApplication", category: "ReferenceApplication" },
   },
   {
+    slug: "origins",
+    years: "2019–2021",
+    station: "origins",
+    tint: "#b9a9ff",
+    links: [
+      { kind: "repo", href: "https://github.com/Keimeno/oidc-server", label: "oidc-server" },
+      {
+        kind: "pr",
+        href: "https://github.com/sequelize/sequelize/pull/13710",
+        label: "sequelize#13710",
+      },
+      {
+        kind: "repo",
+        href: "https://github.com/LuminuNET/key-redeem-feedback",
+        label: "key-redeem-feedback",
+      },
+    ],
+    schema: { type: "CreativeWork" },
+  },
+  {
     slug: "lexicon-bluff",
     years: "2026",
     tint: "#ff8f70",

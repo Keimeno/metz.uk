@@ -1,0 +1,56 @@
+---
+title: "Origins"
+headline: "A hand-rolled OIDC provider for a Minecraft community's legacy XenForo accounts, then Sequelize's maintainers team."
+description: "Where Constantin Metz started: single sign-on for the LuminuNET Minecraft network on legacy XenForo accounts, then the Sequelize maintainers team."
+role: "Solo on the LuminuNET web services · Sequelize maintainer"
+stack: ["TypeScript", "Node.js", "Express", "Vue 2", "Redis", "MySQL", "Sequelize"]
+facts:
+  - { value: "4,096-bit", label: "RSA key pair per OIDC client" }
+  - { value: "10 of 13", label: "Sequelize PRs merged" }
+  - { value: "41", label: "files in sequelize#13710" }
+  - { value: "28", label: "Sequelize PRs reviewed" }
+---
+
+## The problem
+
+LuminuNET was a Minecraft network, and its accounts lived in a XenForo forum: usernames, emails, group ranks and PHP-written bcrypt hashes, all in the forum's MySQL database. The network was starting to grow web tools around the game, a beta-key page and a chat-moderation panel among them, and each would otherwise have needed its own login form and its own copy of the users.
+
+I wanted one login for all of them, on the accounts people already had, without migrating a single password. I was still at school. What came out was a hand-rolled OIDC provider for single sign-on across a gaming community, on legacy XenForo accounts, plus the shared pieces around it.
+
+Half a year later I opened my first pull request to Sequelize, a Node.js ORM, and ended up on its maintainers team.
+
+## What I built
+
+### LuminuNET, December 2019 to April 2020
+
+- **The OIDC provider** ([oidc-server](https://github.com/Keimeno/oidc-server)). A TypeScript service on Express with Vue 2 login and consent pages. It checks passwords against the forum's own tables, asks for consent per app and remembers it, rate-limits failed logins in Redis, and signs ID and access tokens with RS256, using a key pair generated for each registered app. It supports the implicit flow only. 128 commits between mid-December and early January.
+- **A component library** ([@luminu/components](https://github.com/Keimeno/components-library)). Vue 2 buttons, cards, alerts, loaders, notifications, headers, a footer and tabs, in English and German, published to the network's private npm registry so every app looked the same. A small core package next to it shared the Redis and locale helpers.
+- **Beta keys and feedback** ([key-redeem-feedback](https://github.com/LuminuNET/key-redeem-feedback)). Players redeemed a beta key against their Minecraft name and later filled in a feedback form that triggered a reward.
+
+### Sequelize, June 2020 to December 2021
+
+My first pull request fixed TypeScript types that didn't match the JavaScript. The second added `ModelDefined`, a shorthand type that is still in Sequelize 6's typings. Then I joined the maintainers team, and being on it meant three things: reviewing other people's pull requests (28 in 2021, from one-line doc fixes to a new Snowflake dialect), keeping the typings in step with the runtime, and taking a share of the move of the codebase itself to TypeScript. Of the 13 pull requests I opened, 10 were merged.
+
+## The hard parts
+
+### Logging in with someone else's password hashes
+
+XenForo stores each user's login data PHP-serialised, and PHP labels its bcrypt hashes `$2y$`. The Node bcrypt binding I used only knew `$2a$` and `$2b$`. Same algorithm, different label: the service unserialises the blob, relabels the prefix and compares. Every forum account could log in unchanged, and the forum stayed the single source of truth for who someone was and which group they belonged to.
+
+### Consent that remembers
+
+A login page is easy; a consent screen that doesn't nag is harder. Grants are stored per user and per app in MySQL and cached in Redis for an hour. When an app asks with `prompt=none`, the provider only answers silently if the app wants exactly the scopes the user granted before. Anything more goes back to the consent page.
+
+### Beta keys tied to Minecraft accounts
+
+A key is only worth something if it lands on the right player. The redeem endpoint resolves the Minecraft name to its UUID through a Mojang API proxy, marks the key as used by that UUID in MySQL and adds the UUID to a Redis set the rest of the network could read; at startup the service rebuilds that set from the database. Requests are rate-limited per IP, each player can redeem once, and finished feedback is announced on a Redis pub/sub channel.
+
+### Moving Sequelize's errors to TypeScript
+
+[#13710](https://github.com/sequelize/sequelize/pull/13710) converted what was left of `lib/errors` (validation, database and constraint errors, optimistic locking, aggregate and bulk-record errors) plus the MSSQL connection queue: 731 lines added, 616 removed. The hard part wasn't the syntax. The hand-written typings disagreed with the JavaScript in places, so typing the code honestly could break TypeScript users while JavaScript users noticed nothing, and every such spot needed a decision. I turned the lookup objects for validation origins and types into enums and kept the old static properties as deprecated aliases until v7. A misleadingly named parameter stayed as it was, noted for v7, rather than break the API. Sascha Depold, who created Sequelize, merged it in December 2021, and it shipped in 6.12.0.
+
+## Looking back
+
+For a few first-party apps, built by one person over the Christmas holidays, the provider did what the network needed: one sign-in on the accounts everyone already had, consent that remembered, rate limits and signed tokens. The implicit flow was still the common choice for browser apps in 2019, and per-app keys were simple to hand out when the same team ran every app.
+
+Grown up today, it would use the authorization code flow with PKCE, a discovery document and a published key set, most likely through a certified OIDC library, with the XenForo bridge as the custom part. That bridge is the piece I got most right at 18. I went through all of it, with the code, in [Building an OpenID Connect server at 18](/writing/oidc-at-18/).

@@ -1,0 +1,56 @@
+---
+title: "Anfänge"
+headline: "Ein selbstgebauter OIDC-Provider für die alten XenForo-Accounts einer Minecraft-Community, dann das Sequelize-Team."
+description: "Wo Constantin Metz angefangen hat: Single Sign-on für das Minecraft-Netzwerk LuminuNET auf alten XenForo-Accounts, danach das Maintainer-Team von Sequelize."
+role: "Allein an den LuminuNET-Webdiensten · Sequelize-Maintainer"
+stack: ["TypeScript", "Node.js", "Express", "Vue 2", "Redis", "MySQL", "Sequelize"]
+facts:
+  - { value: "4.096 Bit", label: "RSA-Schlüsselpaar pro OIDC-Client" }
+  - { value: "10 von 13", label: "Sequelize-PRs gemergt" }
+  - { value: "41", label: "Dateien in sequelize#13710" }
+  - { value: "28", label: "Sequelize-PRs reviewt" }
+---
+
+## Das Problem
+
+LuminuNET war ein Minecraft-Netzwerk, und seine Accounts lagen in einem XenForo-Forum: Benutzernamen, E-Mail-Adressen, Gruppenränge und bcrypt-Hashes aus PHP, alles in der MySQL-Datenbank des Forums. Rund um das Spiel entstanden gerade die ersten Web-Tools, darunter eine Seite für Beta-Keys und ein Panel zur Chat-Moderation, und jedes davon hätte sonst ein eigenes Login-Formular und eine eigene Kopie der Nutzer gebraucht.
+
+Ich wollte einen Login für alle, mit den Accounts, die die Leute schon hatten, und ohne auch nur ein Passwort zu migrieren. Ich ging damals noch zur Schule. Herausgekommen ist ein selbstgebauter OIDC-Provider für Single Sign-on in einer Gaming-Community, auf alten XenForo-Accounts, dazu die gemeinsamen Bausteine drumherum.
+
+Ein halbes Jahr später habe ich meinen ersten Pull Request für Sequelize geöffnet, ein ORM für Node.js, und bin schließlich im Maintainer-Team gelandet.
+
+## Was ich gebaut habe
+
+### LuminuNET, Dezember 2019 bis April 2020
+
+- **Der OIDC-Provider** ([oidc-server](https://github.com/Keimeno/oidc-server)). Ein TypeScript-Service auf Express mit Login- und Consent-Seiten in Vue 2. Er prüft Passwörter direkt gegen die Tabellen des Forums, fragt pro App nach der Einwilligung und merkt sie sich, bremst fehlgeschlagene Logins über Redis aus und signiert ID und Access Tokens mit RS256, mit einem eigenen Schlüsselpaar für jede registrierte App. Unterstützt wird nur der Implicit Flow. 128 Commits zwischen Mitte Dezember und Anfang Januar.
+- **Eine Komponentenbibliothek** ([@luminu/components](https://github.com/Keimeno/components-library)). Buttons, Cards, Alerts, Loader, Benachrichtigungen, Header, Footer und Tabs in Vue 2, auf Deutsch und Englisch, veröffentlicht in der privaten npm-Registry des Netzwerks, damit alle Apps gleich aussehen. Ein kleines Core-Paket daneben teilte die Helfer für Redis und Sprache.
+- **Beta-Keys und Feedback** ([key-redeem-feedback](https://github.com/LuminuNET/key-redeem-feedback)). Spieler lösten einen Beta-Key für ihren Minecraft-Namen ein und füllten später einen Feedback-Bogen aus, der eine Belohnung auslöste.
+
+### Sequelize, Juni 2020 bis Dezember 2021
+
+Mein erster Pull Request korrigierte TypeScript-Typen, die nicht zum JavaScript passten. Der zweite brachte `ModelDefined`, einen Kurzschreib-Typ, der bis heute in den Typings von Sequelize 6 steckt. Danach kam ich ins Maintainer-Team, und das hieß vor allem dreierlei: Pull Requests anderer reviewen (28 im Jahr 2021, von einzeiligen Doku-Fixes bis zu einem neuen Snowflake-Dialekt), die Typings im Gleichschritt mit dem Laufzeitverhalten halten und einen Teil der Umstellung der Codebasis selbst auf TypeScript übernehmen. Von meinen 13 Pull Requests wurden 10 gemergt.
+
+## Die schwierigen Teile
+
+### Login mit fremden Passwort-Hashes
+
+XenForo speichert die Login-Daten jedes Nutzers PHP-serialisiert, und PHP kennzeichnet seine bcrypt-Hashes mit `$2y$`. Das bcrypt-Binding für Node, das ich verwendet habe, kannte nur `$2a$` und `$2b$`. Gleicher Algorithmus, anderes Etikett: Der Service deserialisiert den Datensatz, tauscht das Präfix und vergleicht. Jeder Forum-Account konnte sich unverändert anmelden, und das Forum blieb die einzige Quelle dafür, wer jemand war und zu welcher Gruppe er gehörte.
+
+### Einwilligung mit Gedächtnis
+
+Eine Login-Seite ist schnell gebaut, eine Consent-Seite, die nicht nervt, weniger. Einwilligungen liegen pro Nutzer und App in MySQL und eine Stunde lang im Redis-Cache. Fragt eine App mit `prompt=none`, antwortet der Provider nur dann still, wenn sie genau die Scopes will, die schon einmal freigegeben wurden. Alles darüber hinaus landet wieder auf der Consent-Seite.
+
+### Beta-Keys, die beim richtigen Spieler ankommen
+
+Ein Key ist nur etwas wert, wenn er beim richtigen Spieler landet. Der Endpunkt zum Einlösen löst den Minecraft-Namen über einen Proxy der Mojang-API in die UUID auf, markiert den Key in MySQL als von dieser UUID benutzt und trägt die UUID in ein Redis-Set ein, das der Rest des Netzwerks lesen konnte. Beim Start baut der Service dieses Set aus der Datenbank neu auf. Anfragen sind pro IP begrenzt, jeder Spieler kann nur einmal einlösen, und abgeschlossenes Feedback wird über einen Pub/Sub-Kanal in Redis gemeldet.
+
+### Die Fehlerklassen von Sequelize in TypeScript
+
+[#13710](https://github.com/sequelize/sequelize/pull/13710) hat den Rest von `lib/errors` umgestellt (Validierungs-, Datenbank- und Constraint-Fehler, Optimistic Locking, Aggregate- und Bulk-Record-Fehler), dazu die Verbindungs-Queue des MSSQL-Dialekts: 731 Zeilen hinzu, 616 entfernt. Schwierig war nicht die Syntax. Die handgeschriebenen Typings widersprachen dem JavaScript an mehreren Stellen. Den Code ehrlich zu typisieren, konnte also TypeScript-Nutzer brechen, während JavaScript-Nutzer nichts merkten, und jede dieser Stellen brauchte eine Entscheidung. Die Nachschlage-Objekte für Herkunft und Typ von Validierungsfehlern wurden zu Enums, die alten statischen Properties blieben als veraltete Aliase bis v7 erhalten. Einen irreführend benannten Parameter habe ich gelassen und für v7 vorgemerkt, statt die API zu brechen. Gemergt hat das im Dezember 2021 Sascha Depold, der Sequelize ins Leben gerufen hat; erschienen ist es in 6.12.0.
+
+## Rückblick
+
+Für ein paar eigene Apps, gebaut von einer Person in den Weihnachtsferien, hat der Provider getan, was das Netzwerk brauchte: ein Login mit den Accounts, die alle schon hatten, Zustimmungen, die sich der Provider merkte, Rate Limits und signierte Tokens. Der Implicit Flow war 2019 für Browser-Apps noch die gängige Wahl, und Schlüssel pro App waren leicht zu verteilen, solange dasselbe Team jede App betrieb.
+
+Erwachsen geworden würde er heute den Authorization Code Flow mit PKCE nutzen, ein Discovery-Dokument und einen veröffentlichten Schlüsselsatz, wahrscheinlich über eine zertifizierte OIDC-Bibliothek, mit der XenForo-Brücke als eigenem Teil. Diese Brücke ist das Stück, das ich mit 18 am besten hinbekommen habe. Mit Code beschrieben habe ich das alles in [Ein OpenID-Connect-Server mit 18](/de/texte/oidc-mit-18/).
