@@ -3,6 +3,7 @@
 // cues from one table. Isomorphic: no DOM.
 
 import { at, type Cue, type StationId } from "./beats";
+import * as history from "./stations/history";
 import * as intro from "./stations/intro";
 import * as origins from "./stations/origins";
 import * as paperscores from "./stations/paperscores";
@@ -16,6 +17,7 @@ export const STATION_MODULES = [
   zenarios.zenarios,
   paperscores.paperscores,
   origins.origins,
+  history.history,
 ];
 
 const prefixed = (prefix: string, cues: Record<string, Cue>) =>
@@ -27,6 +29,7 @@ export const CUES: Record<string, Cue> = {
   ...prefixed("zen", zenarios.CUES),
   ...prefixed("ps", paperscores.CUES),
   ...prefixed("org", origins.CUES),
+  ...prefixed("his", history.CUES),
   "end.overview": at("end", 0.05, 0.5),
 };
 
@@ -36,6 +39,7 @@ export const PANELS = {
   ...zenarios.PANELS,
   ...paperscores.PANELS,
   ...origins.PANELS,
+  ...history.PANELS,
   "end.next": at("end", 0.35, 99),
 } as const satisfies Record<string, Cue>;
 
@@ -46,4 +50,5 @@ export const CHAPTERS: { id: string; station: StationId }[] = [
   { id: "zenarios", station: "zenarios" },
   { id: "paperscores", station: "paperscores" },
   { id: "origins", station: "origins" },
+  { id: "history", station: "history" },
 ];
