@@ -1,0 +1,121 @@
+---
+// The document around every page: language, canonical, hreflang alternates, social metadata and the
+// structured-data graph (src/lib/seo.ts).
+import "@fontsource-variable/geist/wght.css";
+import "@fontsource-variable/geist-mono/wght.css";
+import "../styles/global.css";
+
+// The Latin subset is on every page, so it is fetched alongside the HTML instead of after the CSS.
+import fontLatin from "@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?url";
+
+import {
+  LOCALES,
+  OG_LOCALE,
+  otherLocale,
+  route,
+  rssPath,
+  type Alternates,
+  type Locale,
+} from "../i18n/routes";
+import { useT } from "../i18n/ui";
+import { OG_HEIGHT, OG_WIDTH, ogImagePath } from "../lib/og";
+import { pageGraph, serializeLd, type PageLd } from "../lib/seo";
+
+interface Props {
+  /** The whole `<title>`. */
+  title: string;
+  description: string;
+  locale: Locale;
+  /** This page in every language. Null only for pages that exist once (the 404). */
+  alternates: Alternates | null;
+  /** Keep the page out of search results (drafts, the 404). */
+  noindex?: boolean;
+  ogType?: "website" | "article" | "profile";
+  /** What this page adds to the structured data; see PageLd. */
+  ld?: PageLd;
+}
+
+const {
+  title,
+  description,
+  locale,
+  alternates,
+  noindex = false,
+  ogType = "website",
+  ld,
+} = Astro.props;
+const t = useT(locale);
+const site = Astro.site!;
+const abs = (path: string) => new URL(path, site).href;
+const path = alternates ? alternates[locale] : null;
+const canonical = path ? abs(path) : null;
+// Every page has its own card; the 404 borrows the home page's.
+const ogImage = abs(ogImagePath(path ?? route("home", locale)));
+const graph = pageGraph({ locale, path, title, description, ld });
+
+if (import.meta.env.DEV && alternates) {
+  const here = Astro.url.pathname.replace(/\/?$/, "/");
+  if (here !== alternates[locale]) {
+    console.warn(
+      `[i18n] ${Astro.url.pathname} renders as ${alternates[locale]}: check the route map.`
+    );
+  }
+}
+---
+
+<!doctype html>
+<html lang={locale} dir="ltr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex, follow" />}
+    {canonical && <link rel="canonical" href={canonical} />}
+    {alternates && (
+      <>
+        {LOCALES.map((l) => (
+          <link rel="alternate" hreflang={l} href={abs(alternates[l])} />
+        ))}
+        <link rel="alternate" hreflang="x-default" href={abs(alternates.en)} />
+      </>
+    )}
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title={`${t("site.name")} · ${t("nav.writing")}`}
+      href={rssPath(locale)}
+    />
+
+    <meta property="og:site_name" content="Constantin Metz" />
+    <meta property="og:type" content={ogType} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    {canonical && <meta property="og:url" content={canonical} />}
+    <meta property="og:locale" content={OG_LOCALE[locale]} />
+    {alternates && <meta property="og:locale:alternate" content={OG_LOCALE[otherLocale(locale)]} />}
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content={String(OG_WIDTH)} />
+    <meta property="og:image:height" content={String(OG_HEIGHT)} />
+    <meta property="og:image:alt" content={title} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content={ogImage} />
+    <meta name="twitter:image:alt" content={title} />
+    <script is:inline type="application/ld+json" set:html={serializeLd(graph)} />
+    <link rel="preload" href={fontLatin} as="font" type="font/woff2" crossorigin />
+    <meta name="theme-color" content="#0B0B0C" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script is:inline>
+      document.documentElement.classList.add("js");
+    </script>
+    <slot name="head" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">
+      {t("skip")}
+    </a>
+    <slot />
+  </body>
+</html>
