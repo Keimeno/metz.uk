@@ -1,0 +1,261 @@
+---
+// All the work, in either language: the four projects on the thread, then the smaller ones.
+import Page from "../../layouts/Page.astro";
+import { publicFileExists } from "../../lib/files";
+import { getProjects } from "../../lib/content";
+import { itemList } from "../../lib/seo";
+import { alternatesOf, projectPath, route, type Locale } from "../../i18n/routes";
+import { useT } from "../../i18n/ui";
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = useT(locale);
+const projects = await getProjects();
+const featured = projects.filter((p) => p.def.station);
+const more = projects.filter((p) => !p.def.station);
+const title = locale === "de" ? "Projekte · Constantin Metz" : "Work · Constantin Metz";
+const description =
+  locale === "de"
+    ? "Projekte von Constantin Metz: Zenarios, PaperScores, die Anfänge mit OpenID Connect und Sequelize, und kleinere Tools. Jeweils mit Fallstudie."
+    : "Projects by Constantin Metz: Zenarios, PaperScores, the OpenID Connect and Sequelize origins, and smaller tools. Each with a case study.";
+const stillOf = (station?: string) => {
+  const src = station ? `/media/thread/${station}.webp` : null;
+  return src && publicFileExists(src) ? src : null;
+};
+---
+
+<Page
+  title={title}
+  description={description}
+  locale={locale}
+  alternates={alternatesOf("work")}
+  section="work"
+  ld={{
+    type: "CollectionPage",
+    crumbs: [[t("nav.work"), route("work", locale)]],
+    mainEntity: itemList(
+      projects.map((p) => ({ name: p[locale].data.title, path: projectPath(p.def.slug, locale) }))
+    ),
+  }}>
+  <div class="wrap">
+    <header class="page-head">
+      <p class="eyebrow">{t("work.title")}</p>
+      <h1>{locale === "de" ? "Was ich gebaut habe" : "Things I've built"}</h1>
+      <p class="lede">{t("work.lede")}</p>
+    </header>
+
+    <section aria-labelledby="featured">
+      <h2 id="featured" class="eyebrow section-label">
+        {t("work.featured")}
+      </h2>
+      <ul class="cards">
+        {featured.map((p, i) => {
+          const entry = p[locale];
+          const still = stillOf(p.def.station);
+          return (
+            <li class="card" style={`--tint:${p.def.tint}`}>
+              <a class="card__link" href={projectPath(p.def.slug, locale)}>
+                <span class="card__num">{String(i + 1).padStart(2, "0")}</span>
+                <span class="card__title">{entry.data.title}</span>
+              </a>
+              <p class="card__line">{entry.data.headline}</p>
+              <p class="card__meta">
+                <span>{p.def.years}</span>
+                <span>{entry.data.role}</span>
+              </p>
+              {still && (
+                <img
+                  class="card__still"
+                  src={still}
+                  width="1800"
+                  height="1126"
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                />
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+
+    <section class="more-section" aria-labelledby="more">
+      <h2 id="more" class="eyebrow section-label">
+        {t("work.more")}
+      </h2>
+      <ul class="rows">
+        {more.map((p) => {
+          const entry = p[locale];
+          return (
+            <li class="row" style={`--tint:${p.def.tint}`}>
+              <a class="row__link" href={projectPath(p.def.slug, locale)}>
+                <span class="row__title">{entry.data.title}</span>
+              </a>
+              <p class="row__line">{entry.data.headline}</p>
+              <p class="row__meta">
+                <span>{p.def.years}</span>
+                <span>{entry.data.stack.slice(0, 3).join(" · ")}</span>
+              </p>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  </div>
+</Page>
+
+<style>
+  .section-label {
+    margin: 0 0 22px;
+  }
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--gutter);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .card {
+    position: relative;
+    display: grid;
+    align-content: start;
+    gap: 14px;
+    min-height: 320px;
+    padding: 30px 30px 34px;
+    overflow: hidden;
+    border: 1px solid var(--hair);
+    border-radius: 22px;
+    background:
+      radial-gradient(
+        90% 70% at 100% 0%,
+        color-mix(in srgb, var(--tint) 14%, transparent),
+        transparent 70%
+      ),
+      var(--ink-2);
+    isolation: isolate;
+    transition: border-color 0.35s ease;
+  }
+  .card:hover,
+  .card:focus-within {
+    border-color: color-mix(in srgb, var(--tint) 45%, transparent);
+  }
+  .card__still {
+    position: absolute;
+    inset: auto 0 0 auto;
+    z-index: -1;
+    width: 78%;
+    height: auto;
+    opacity: 0.55;
+    mix-blend-mode: screen;
+    /* Crush the render's near-black to black, so no rectangle shows. */
+    filter: contrast(1.25);
+    -webkit-mask-image: radial-gradient(closest-side, #000 55%, transparent 100%);
+    mask-image: radial-gradient(closest-side, #000 55%, transparent 100%);
+    transition: opacity 0.4s ease;
+  }
+  .card:hover .card__still {
+    opacity: 0.8;
+  }
+  .card__link {
+    display: grid;
+    gap: 18px;
+    text-decoration: none;
+  }
+  .card__link::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+  }
+  .card__num {
+    color: var(--tint);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+  }
+  .card__title {
+    font-size: clamp(32px, 3.4vw, 48px);
+    font-weight: 500;
+    letter-spacing: -0.04em;
+    line-height: 1;
+  }
+  .card__line {
+    max-width: 34ch;
+    margin: 0;
+    color: var(--text-2);
+    font-size: 17px;
+    text-wrap: pretty;
+  }
+  .card__meta,
+  .row__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    margin: 0;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .card__meta {
+    margin-top: auto;
+    padding-top: 30px;
+  }
+
+  .more-section {
+    margin-top: clamp(80px, 12vh, 140px);
+  }
+  .rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--hair);
+  }
+  .row {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 4fr) minmax(0, 6fr) minmax(0, 3fr);
+    align-items: baseline;
+    gap: 8px var(--gutter);
+    padding: 26px 0;
+    border-bottom: 1px solid var(--hair);
+  }
+  .row__link {
+    text-decoration: none;
+  }
+  .row__link::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+  }
+  .row__title {
+    font-size: clamp(22px, 2vw, 28px);
+    font-weight: 500;
+    letter-spacing: -0.025em;
+    transition: color 0.3s ease;
+  }
+  .row:hover .row__title {
+    color: var(--tint);
+  }
+  .row__line {
+    margin: 0;
+    color: var(--text-2);
+  }
+  @media (max-width: 860px) {
+    .cards {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .card {
+      min-height: 0;
+    }
+    .row {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 10px;
+    }
+  }
+</style>
