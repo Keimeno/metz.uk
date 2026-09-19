@@ -1,0 +1,39 @@
+---
+// A link to this same page in the other language.
+import { otherLocale, type Alternates, type Locale } from "../../i18n/routes";
+import { useT } from "../../i18n/ui";
+
+interface Props {
+  locale: Locale;
+  alternates: Alternates | null;
+  /** "short": "DE"; "long": "Deutsch". */
+  size?: "short" | "long";
+  class?: string;
+}
+
+const { locale, alternates, size = "short", class: className } = Astro.props;
+const t = useT(locale);
+const other = otherLocale(locale);
+---
+
+{
+  alternates && (
+    <a
+      class:list={["lang-switch", className]}
+      href={alternates[other]}
+      hreflang={other}
+      lang={other}
+      title={t("lang.otherTitle")}
+      data-lang-switch
+    >
+      {size === "short" ? (
+        <>
+          <span class="visually-hidden">{t("lang.other")}</span>
+          <span aria-hidden="true">{t("lang.otherShort")}</span>
+        </>
+      ) : (
+        t("lang.other")
+      )}
+    </a>
+  )
+}

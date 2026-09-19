@@ -1,0 +1,47 @@
+---
+// Every page but the home page: header, content, footer.
+import SiteFooter from "../components/layout/SiteFooter.astro";
+import SiteHeader from "../components/layout/SiteHeader.astro";
+import type { Alternates, Locale, RouteKey } from "../i18n/routes";
+import type { PageLd } from "../lib/seo";
+import Base from "./Base.astro";
+
+interface Props {
+  title: string;
+  description: string;
+  locale: Locale;
+  alternates: Alternates | null;
+  /** The header's current section. */
+  section?: RouteKey;
+  noindex?: boolean;
+  ogType?: "website" | "article" | "profile";
+  /** The page's accent colour (a project's tint). */
+  tint?: string;
+  ld?: PageLd;
+}
+
+const { section, tint, ...base } = Astro.props;
+---
+
+<Base {...base}>
+  <slot name="head" slot="head" />
+  <div class="page" style={tint ? `--tint:${tint}` : undefined}>
+    <SiteHeader locale={base.locale} alternates={base.alternates} current={section} />
+    <main id="main">
+      <slot />
+    </main>
+    <SiteFooter locale={base.locale} alternates={base.alternates} />
+  </div>
+</Base>
+
+<style>
+  .page {
+    display: flex;
+    flex-direction: column;
+    min-height: 100svh;
+  }
+  main {
+    flex: 1;
+    padding-bottom: clamp(72px, 12vh, 140px);
+  }
+</style>
