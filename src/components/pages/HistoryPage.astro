@@ -1,0 +1,307 @@
+---
+// The long-form history, in either language. The only page that names employers.
+import Page from "../../layouts/Page.astro";
+import { HISTORY, OLD_SITE } from "../../data/history";
+import { publicFileExists } from "../../lib/files";
+import { IDS } from "../../lib/seo";
+import { alternatesOf, projectPath, route, type Locale } from "../../i18n/routes";
+import { useT } from "../../i18n/ui";
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = useT(locale);
+const hasOldSite = publicFileExists(OLD_SITE.image);
+
+const copy = {
+  en: {
+    title: "History · Constantin Metz",
+    description:
+      "The history of Constantin Metz: self-taught from childhood, internships at school, adabay, DealerCenter Digital, Appfire, the Sequelize team, Zenarios and Mercura.",
+    h1: "From Minecraft mods to the App Store",
+    lede: "Self-taught, shipping software since school. The whole story, oldest first, with the names the rest of the site leaves out.",
+    oldTitle: "The site before this one",
+    oldBody:
+      "keimeno.party, 2020: Vue 2, neo-brutalist, bright green. It had no story and no About page, and without JavaScript it showed nothing. This site tries to do the opposite.",
+    oldLink: "See it in the Wayback Machine",
+    oldAlt: "Screenshot of keimeno.party, Constantin Metz's personal site in 2020",
+    oldPending: "Screenshot to come",
+    projects: "Related",
+  },
+  de: {
+    title: "Werdegang · Constantin Metz",
+    description:
+      "Der Werdegang von Constantin Metz: Autodidakt seit der Kindheit, Praktika zur Schulzeit, adabay, DealerCenter Digital, Appfire, Sequelize, Zenarios und Mercura.",
+    h1: "Von Minecraft-Mods in den App Store",
+    lede: "Autodidakt, mit Software in Produktion seit der Schulzeit. Die ganze Geschichte, chronologisch, mit den Namen, die der Rest der Seite weglässt.",
+    oldTitle: "Die Seite vor dieser",
+    oldBody:
+      "keimeno.party, 2020: Vue 2, neo-brutalistisch, knallgrün. Sie erzählte keine Geschichte, hatte keine Über-mich-Seite und zeigte ohne JavaScript gar nichts. Diese Seite versucht das Gegenteil.",
+    oldLink: "In der Wayback Machine ansehen",
+    oldAlt:
+      "Screenshot von keimeno.party, der persönlichen Website von Constantin Metz im Jahr 2020",
+    oldPending: "Screenshot folgt",
+    projects: "Dazu",
+  },
+}[locale];
+
+/** Case studies and posts that belong to an entry. */
+const related: Record<string, { href: string; label: string }[]> = {
+  luminunet: [
+    {
+      href: projectPath("origins", locale),
+      label: locale === "de" ? "Fallstudie: Anfänge" : "Case study: Origins",
+    },
+  ],
+  sequelize: [
+    {
+      href: projectPath("origins", locale),
+      label: locale === "de" ? "Fallstudie: Anfänge" : "Case study: Origins",
+    },
+  ],
+  zenarios: [
+    {
+      href: projectPath("zenarios", locale),
+      label: locale === "de" ? "Fallstudie: Zenarios" : "Case study: Zenarios",
+    },
+  ],
+};
+---
+
+<Page
+  title={copy.title}
+  description={copy.description}
+  locale={locale}
+  alternates={alternatesOf("history")}
+  section="history"
+  ld={{
+    about: IDS.person,
+    employers: true,
+    crumbs: [[t("nav.history"), route("history", locale)]],
+  }}>
+  <div class="wrap">
+    <header class="page-head">
+      <p class="eyebrow">{t("history.title")}</p>
+      <h1>{copy.h1}</h1>
+      <p class="lede">{copy.lede}</p>
+    </header>
+
+    <ol class="timeline">
+      {HISTORY.map((e) => (
+        <li class="entry" id={e.id}>
+          <p class="entry__when">{e.when[locale]}</p>
+          <div class="entry__main">
+            <h2>{e.title[locale]}</h2>
+            {e.org && (
+              <p class="entry__org">
+                {e.org.name}
+                {e.org.place && <span> · {e.org.place[locale]}</span>}
+              </p>
+            )}
+            {e.body && <p class="entry__body">{e.body[locale]}</p>}
+            {e.points && (
+              <ul class="entry__points">
+                {e.points[locale].map((p) => (
+                  <li>{p}</li>
+                ))}
+              </ul>
+            )}
+            {(e.links?.length || related[e.id]) && (
+              <p class="entry__links">
+                {related[e.id]?.map((r) => (
+                  <a href={r.href}>{r.label}</a>
+                ))}
+                {e.links?.map((l) => (
+                  <a href={l.href} rel="noopener">
+                    {l.label[locale]} <span aria-hidden="true">↗</span>
+                  </a>
+                ))}
+              </p>
+            )}
+          </div>
+        </li>
+      ))}
+    </ol>
+
+    <section class="old" aria-labelledby="old-site">
+      <div class="old__text">
+        <p class="eyebrow">{OLD_SITE.year}</p>
+        <h2 id="old-site">{copy.oldTitle}</h2>
+        <p>{copy.oldBody}</p>
+        <p>
+          <a class="text-link" href={OLD_SITE.wayback} rel="noopener">
+            {copy.oldLink} ↗
+          </a>
+        </p>
+      </div>
+      <figure class="old__shot">
+        {hasOldSite ? (
+          <img
+            src={OLD_SITE.image}
+            width="1600"
+            height="1000"
+            alt={copy.oldAlt}
+            loading="lazy"
+            decoding="async"
+          />
+        ) : (
+          <div class="old__pending">
+            <span class="old__domain">keimeno.party</span>
+            <span class="eyebrow">{copy.oldPending}</span>
+          </div>
+        )}
+      </figure>
+    </section>
+
+    <p class="next">
+      <a class="more" href={route("work", locale)}>
+        {t("work.all")}
+      </a>
+      <a class="more" href={route("about", locale)}>
+        {t("nav.about")}
+      </a>
+    </p>
+  </div>
+</Page>
+
+<style>
+  .timeline {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .entry {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 9fr);
+    gap: 12px var(--gutter);
+    padding: 40px 0 44px;
+    border-top: 1px solid var(--hair);
+  }
+  .entry__when {
+    margin: 0;
+    padding-top: 8px;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .entry__main {
+    max-width: 720px;
+  }
+  .entry h2 {
+    margin: 0;
+    font-size: clamp(26px, 2.6vw, 36px);
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    text-wrap: balance;
+  }
+  .entry__org {
+    margin: 10px 0 0;
+    color: var(--text);
+    font-size: 16px;
+    font-weight: 500;
+  }
+  .entry__org span {
+    color: var(--muted);
+    font-weight: 400;
+  }
+  .entry__body {
+    margin: 16px 0 0;
+    color: var(--text-2);
+    line-height: 1.65;
+  }
+  .entry__points {
+    display: grid;
+    gap: 8px;
+    margin: 16px 0 0;
+    padding-left: 1.2em;
+    color: var(--text-2);
+    line-height: 1.6;
+  }
+  .entry__points li::marker {
+    color: var(--muted);
+  }
+  .entry__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 20px;
+    margin: 18px 0 0;
+    font-size: 15px;
+  }
+  .entry__links a {
+    color: var(--text);
+    text-decoration: underline;
+    text-decoration-color: var(--hair-strong);
+    text-underline-offset: 4px;
+  }
+  .entry__links a:hover {
+    text-decoration-color: var(--text);
+  }
+
+  .old {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    align-items: center;
+    gap: 40px var(--gutter);
+    margin-top: clamp(72px, 12vh, 140px);
+    padding-top: 48px;
+    border-top: 1px solid var(--hair);
+  }
+  .old h2 {
+    margin: 12px 0 16px;
+    font-size: clamp(26px, 2.6vw, 36px);
+    font-weight: 500;
+    letter-spacing: -0.03em;
+  }
+  .old p {
+    color: var(--text-2);
+  }
+  .old__shot {
+    margin: 0;
+  }
+  .old__shot img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--hair);
+    border-radius: 14px;
+  }
+  .old__pending {
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 10px;
+    aspect-ratio: 16 / 10;
+    border: 1px dashed var(--hair-strong);
+    border-radius: 14px;
+    background: var(--ink-2);
+  }
+  .old__domain {
+    color: #08ca56;
+    font-family: var(--font-mono);
+    font-size: clamp(22px, 3vw, 36px);
+    font-weight: 600;
+  }
+  .next {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 32px;
+    margin: clamp(56px, 9vh, 96px) 0 0;
+  }
+  @media (max-width: 760px) {
+    .entry,
+    .old {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .entry {
+      padding: 32px 0 36px;
+    }
+    .entry__when {
+      padding-top: 0;
+    }
+  }
+</style>
