@@ -1,0 +1,274 @@
+---
+// Imprint and privacy, in either language. Placeholders still to be filled in are marked visibly.
+import Page from "../../layouts/Page.astro";
+import { LEGAL } from "../../data/legal";
+import { alternatesOf, route, type Locale } from "../../i18n/routes";
+
+interface Props {
+  locale: Locale;
+  kind: "imprint" | "privacy";
+}
+
+const { locale, kind } = Astro.props;
+const de = locale === "de";
+const updated = new Intl.DateTimeFormat(de ? "de-DE" : "en-GB", { dateStyle: "long" }).format(
+  new Date(LEGAL.updated)
+);
+const meta = {
+  imprint: {
+    title: de ? "Impressum · Constantin Metz" : "Imprint · Constantin Metz",
+    description: de
+      ? "Impressum von metz.uk, der persönlichen Website von Constantin Metz: Anbieter, Anschrift und Kontakt."
+      : "Imprint of metz.uk, the personal site of Constantin Metz: who runs it, the postal address and how to get in touch.",
+    h1: de ? "Impressum" : "Imprint",
+  },
+  privacy: {
+    title: de ? "Datenschutz · Constantin Metz" : "Privacy · Constantin Metz",
+    description: de
+      ? "Datenschutzerklärung von metz.uk: keine Cookies, kein Tracking, keine Drittanbieter. Nur die Server-Logs des Hosters."
+      : "Privacy policy of metz.uk: no cookies, no tracking, no third parties. Only the host's server logs.",
+    h1: de ? "Datenschutz" : "Privacy",
+  },
+}[kind];
+---
+
+<Page
+  title={meta.title}
+  description={meta.description}
+  locale={locale}
+  alternates={alternatesOf(kind)}
+  ld={{ crumbs: [[meta.h1, route(kind, locale)]] }}>
+  <div class="wrap legal">
+    <header class="page-head">
+      <h1>{meta.h1}</h1>
+    </header>
+    <div class="prose">
+      {kind === "imprint" && (
+        <>
+          {!de && (
+            <p class="legal__note">
+              This is the legal notice German law requires (§ 5 DDG). The{" "}
+              <a href={route("imprint", "de")} hreflang="de" lang="de">
+                German version
+              </a>{" "}
+              is the binding one.
+            </p>
+          )}
+          <h2>{de ? "Angaben gemäß § 5 DDG" : "Information under § 5 DDG"}</h2>
+          <address>
+            {LEGAL.name}
+            <br />
+            {LEGAL.address.lines.map((line) => (
+              <>
+                <mark class="todo">{line}</mark>
+                <br />
+              </>
+            ))}
+            {LEGAL.address.country[locale]}
+          </address>
+
+          <h2>{de ? "Kontakt" : "Contact"}</h2>
+          <p>
+            {de ? "E-Mail" : "Email"}: <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a>
+          </p>
+
+          <h2>
+            {de
+              ? "Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV"
+              : "Responsible for the content (§ 18 (2) MStV)"}
+          </h2>
+          <p>{de ? `${LEGAL.name}, Anschrift wie oben.` : `${LEGAL.name}, address as above.`}</p>
+
+          <h2>{de ? "Links auf andere Websites" : "Links to other sites"}</h2>
+          <p>
+            {de
+              ? "Diese Website verlinkt auf Seiten anderer Anbieter. Für deren Inhalte sind ausschließlich diese verantwortlich. Erfahre ich von einer Rechtsverletzung auf einer verlinkten Seite, entferne ich den Link."
+              : "This site links to sites run by others, who alone are responsible for what's on them. If I learn that a linked page breaks the law, I remove the link."}
+          </p>
+        </>
+      )}
+      {kind === "privacy" &&
+        (de ? (
+          <>
+            <p class="legal__lead">
+              Kurz: Diese Website setzt keine Cookies, speichert nichts in Ihrem Browser, misst
+              keine Besuche und lädt nichts von Dritten. Schriften, Bilder und Skripte kommen von
+              dieser Domain. Es fallen nur die Server-Logs an, ohne die keine Website ausgeliefert
+              werden kann.
+            </p>
+
+            <h2>Verantwortlicher</h2>
+            <p>
+              {LEGAL.name}, Anschrift siehe <a href={route("imprint", "de")}>Impressum</a>, E-Mail{" "}
+              <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a>.
+            </p>
+
+            <h2>Hosting und Server-Logs</h2>
+            <p>
+              Die Website wird von{" "}
+              <mark class="todo">
+                {LEGAL.host.name}, {LEGAL.host.address}
+              </mark>{" "}
+              ausgeliefert. Bei jedem Aufruf verarbeitet der Hoster automatisch Daten, die Ihr
+              Browser übermittelt: IP-Adresse, Datum und Uhrzeit, die aufgerufene Adresse, die zuvor
+              besuchte Seite (Referrer), Browser und Betriebssystem (User-Agent), die übertragene
+              Datenmenge und den Statuscode.
+            </p>
+            <p>
+              Das dient allein dazu, die Website auszuliefern, ihren Betrieb zu sichern und Angriffe
+              abzuwehren. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO; das berechtigte Interesse
+              liegt im sicheren Betrieb der Website. Ich werte diese Logs nicht aus und führe sie
+              mit keinen anderen Daten zusammen. Der Hoster löscht sie nach kurzer Zeit.{" "}
+              <mark class="todo">
+                Speicherdauer und Auftragsverarbeitungsvertrag nach Art. 28 DSGVO beim Deployment
+                bestätigen.
+              </mark>
+            </p>
+            <p>
+              Der Hoster sitzt in den USA. Die Übermittlung stützt sich auf den
+              Angemessenheitsbeschluss der EU-Kommission zum EU-US Data Privacy Framework, unter dem
+              der Hoster zertifiziert ist. Mehr in seiner{" "}
+              <a href={LEGAL.host.privacy} rel="noopener">
+                Datenschutzerklärung
+              </a>
+              .
+            </p>
+
+            <h2>E-Mail</h2>
+            <p>
+              Wenn Sie mir schreiben, verwende ich Ihre Adresse und Ihre Nachricht nur, um zu
+              antworten (Art. 6 Abs. 1 lit. b oder f DSGVO), und lösche sie, wenn die Unterhaltung
+              erledigt ist und keine Aufbewahrungspflicht besteht.
+            </p>
+
+            <h2>Links auf andere Websites</h2>
+            <p>
+              Links etwa zu GitHub, LinkedIn oder dem App Store führen zu Angeboten anderer
+              Anbieter. Erst wenn Sie einem Link folgen, erhalten diese Daten von Ihnen; dann gilt
+              deren Datenschutzerklärung.
+            </p>
+
+            <h2>Ihre Rechte</h2>
+            <p>
+              Sie haben das Recht auf Auskunft (Art. 15 DSGVO), Berichtigung (Art. 16), Löschung
+              (Art. 17), Einschränkung der Verarbeitung (Art. 18), Datenübertragbarkeit (Art. 20)
+              und Widerspruch gegen Verarbeitungen auf Grundlage berechtigter Interessen (Art. 21).
+              Eine E-Mail genügt. Außerdem können Sie sich bei einer Datenschutz-Aufsichtsbehörde
+              beschweren (Art. 77 DSGVO), etwa beim{" "}
+              <a href={LEGAL.authority.href} rel="noopener">
+                {LEGAL.authority.name.de}
+              </a>
+              .
+            </p>
+
+            <p class="legal__updated">Stand: {updated}</p>
+          </>
+        ) : (
+          <>
+            <p class="legal__lead">
+              In short: this site sets no cookies, stores nothing in your browser, doesn't measure
+              visits and loads nothing from third parties. Fonts, images and scripts all come from
+              this domain. The only data are the server logs no website can be delivered without.
+            </p>
+            <p class="legal__note">
+              The{" "}
+              <a href={route("privacy", "de")} hreflang="de" lang="de">
+                German version
+              </a>{" "}
+              is the binding one.
+            </p>
+
+            <h2>Who is responsible</h2>
+            <p>
+              {LEGAL.name}, address in the <a href={route("imprint", "en")}>imprint</a>, email{" "}
+              <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a>.
+            </p>
+
+            <h2>Hosting and server logs</h2>
+            <p>
+              The site is delivered by{" "}
+              <mark class="todo">
+                {LEGAL.host.name}, {LEGAL.host.address}
+              </mark>
+              . With every request, the host automatically processes what your browser sends: your
+              IP address, the date and time, the address requested, the page you came from
+              (referrer), your browser and operating system (user agent), the amount of data sent
+              and the status code.
+            </p>
+            <p>
+              This serves only to deliver the site, keep it running and fend off attacks. The legal
+              basis is Art. 6 (1) (f) GDPR; the legitimate interest is running the site securely. I
+              don't analyse these logs or combine them with any other data. The host deletes them
+              after a short time.{" "}
+              <mark class="todo">
+                Confirm the retention period and the data processing agreement (Art. 28 GDPR) when
+                deploying.
+              </mark>
+            </p>
+            <p>
+              The host is based in the USA. Transfers rely on the European Commission's adequacy
+              decision for the EU-US Data Privacy Framework, under which the host is certified. More
+              in its{" "}
+              <a href={LEGAL.host.privacy} rel="noopener">
+                privacy policy
+              </a>
+              .
+            </p>
+
+            <h2>Email</h2>
+            <p>
+              If you write to me, I use your address and message only to reply (Art. 6 (1) (b) or
+              (f) GDPR), and delete them once the conversation is over and nothing requires me to
+              keep them.
+            </p>
+
+            <h2>Links to other sites</h2>
+            <p>
+              Links to GitHub, LinkedIn, the App Store and others lead to sites run by others. They
+              receive data from you only once you follow a link, and then their privacy policies
+              apply.
+            </p>
+
+            <h2>Your rights</h2>
+            <p>
+              You have the right of access (Art. 15 GDPR), rectification (Art. 16), erasure (Art.
+              17), restriction of processing (Art. 18), data portability (Art. 20), and to object to
+              processing based on legitimate interests (Art. 21). An email is enough. You can also
+              complain to a data protection authority (Art. 77 GDPR), such as the{" "}
+              <a href={LEGAL.authority.href} rel="noopener">
+                {LEGAL.authority.name.en}
+              </a>
+              .
+            </p>
+
+            <p class="legal__updated">Last updated: {updated}</p>
+          </>
+        ))}
+    </div>
+  </div>
+</Page>
+
+<style>
+  .legal .page-head {
+    padding-bottom: clamp(24px, 4vh, 40px);
+  }
+  address {
+    font-style: normal;
+    line-height: 1.7;
+  }
+  .legal__lead {
+    color: var(--text);
+    font-size: 20px;
+  }
+  .legal__note,
+  .legal__updated {
+    color: var(--muted);
+    font-size: 15px;
+  }
+  .todo {
+    padding: 0 4px;
+    border-radius: 4px;
+    background: rgba(255, 189, 82, 0.16);
+    color: #ffbd52;
+  }
+</style>
