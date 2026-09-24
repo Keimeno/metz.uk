@@ -1,0 +1,20 @@
+---
+// One 404 for both languages: it says so in both.
+import Page from "../layouts/Page.astro";
+import { route } from "../i18n/routes";
+import { useT } from "../i18n/ui";
+
+const en = useT("en");
+const de = useT("de");
+---
+
+<Page title="404 · Constantin Metz" description={en("notFound.body")} locale="en" alternates={null} noindex>
+  <div class="wrap">
+    <header class="page-head">
+      <p class="eyebrow">404</p>
+      <h1>{en("notFound.title")}</h1>
+      <p class="lede">{en("notFound.body")} <a class="text-link" href={route("home", "en")}>{en("notFound.home")}</a></p>
+      <p class="lede" lang="de">{de("notFound.body")} <a class="text-link" href={route("home", "de")}>{de("notFound.home")}</a></p>
+    </header>
+  </div>
+</Page>
