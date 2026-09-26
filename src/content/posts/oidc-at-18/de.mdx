@@ -1,0 +1,144 @@
+---
+title: "Ein OpenID-Connect-Server mit 18"
+description: "Weihnachten 2019: Single Sign-on für ein Minecraft-Netzwerk, auf den Accounts seines Forums. Was es brauchte, was ich in drei Wochen gebaut habe und was davon hält."
+slug: "oidc-mit-18"
+published: 2026-10-15
+draft: true
+---
+
+In den Weihnachtsferien 2019, zwischen dem 14. Dezember und dem 7. Januar, habe ich einen OpenID-Connect-Provider für LuminuNET geschrieben, ein Minecraft-Netzwerk, dessen Accounts in einem XenForo-Forum lagen. Ich war 18 und ging noch zur Schule. Das Netzwerk bekam gerade seine ersten Web-Tools, und ich wollte, dass jedes davon weiß, wer man ist, sobald man sich einmal mit seinem Forum-Account angemeldet hat.
+
+Der Code liegt öffentlich unter [Keimeno/oidc-server](https://github.com/Keimeno/oidc-server). Ich habe ihn dieses Jahr noch einmal gelesen und mochte mehr davon, als ich erwartet hatte. Hier steht, was das Netzwerk brauchte, was ich gebaut habe, was gehalten hat und wie ich es heute weiterentwickeln würde.
+
+## Was das Netzwerk brauchte
+
+Die Rahmenbedingungen waren klar, und sie haben jede Entscheidung geprägt:
+
+- **Das Forum war die Quelle der Wahrheit.** Benutzernamen, E-Mail-Adressen, Gruppenränge und Passwort-Hashes lagen in der MySQL-Datenbank von XenForo. Passwörter zu migrieren kam nicht infrage, und einen zweiten Account wollte niemand.
+- **Eine Handvoll eigener Apps.** Eine Seite zum Einlösen von Beta-Keys, ein Panel für die Chat-Moderation, die Website. Alle gebaut und betrieben vom selben kleinen Team.
+- **Der vorhandene Stack.** Node, MySQL und Redis liefen für das Netzwerk ohnehin; was ich baute, musste daneben passen.
+- **Eine Person, eine Ferienzeit.** Dreieinhalb Wochen zwischen zwei Schulhalbjahren.
+
+Ich hätte ein gemeinsames Login-Formular schreiben und in jede App kopieren können. Ich wollte aber einen Standard, damit nicht jede App ihre eigene Vorstellung von einer Session erfindet. OpenID Connect lag auf der Hand.
+
+## Was ich gebaut habe
+
+Einen TypeScript-Service auf einer Alpha von Express 5, dazu ein kleines Vue-2-Frontend für die Login- und Zustimmungsseiten, auf Deutsch und Englisch. Man meldete sich mit Forum-Benutzernamen oder E-Mail und Passwort an, der Service prüfte beides gegen die Tabellen des Forums, eine Zustimmungsseite zeigte, was die App wollte, und der Service gab ein ID Token und ein Access Token zurück, beides JWTs mit RS256-Signatur. Über eine Admin-API ließen sich Apps registrieren. Am Ende waren es 128 Commits in dreieinhalb Wochen, öffentlich seit Mai 2020.
+
+## Die Brücke zu XenForo
+
+Am meisten freut mich bis heute das kleinste Stück. XenForo speichert die Login-Daten jedes Nutzers PHP-serialisiert in `xf_user_authenticate`, und PHP schreibt bcrypt-Hashes mit dem Präfix `$2y$`. Die bcrypt-Bindung für Node, die ich benutzt habe, akzeptierte nur `$2a$` und `$2b$`. Es ist derselbe Algorithmus unter PHPs Etikett, also tauscht der Service das Präfix und vergleicht. Aus `packages/service/src/middleware/checks/authorize/loginChecks.ts`:
+
+```ts
+const unserializedHash = unserialize(serializedHash[0]['data'].toString());
+
+let passwordHash: string = unserializedHash['hash'];
+
+// Need to replace the hash prefix because xenforo uses an old
+// hashing format and bcrypt doesn't support this anymore
+passwordHash = passwordHash.replace('y', 'a');
+```
+
+Die Begründung im Kommentar stimmt nicht ganz (`$2y$` ist nicht älter, sondern PHPs eigene Kennung), und `replace('y', 'a')` funktioniert, weil das Präfix garantiert, dass das erste `y` an dritter Stelle steht. Das Ergebnis ist aber genau das, was das Netzwerk brauchte: Jeder Forum-Account konnte sich unverändert anmelden, ohne Reset, ohne Migration, und das Forum blieb der einzige Ort, der entschied, wer jemand ist und zu welcher Gruppe er gehört.
+
+## Was gehalten hat
+
+**Ein Zustimmungsdialog, der sich erinnert.** Die Seite zeigte den Namen der App und was sie anfragte. Zustimmungen wurden pro Nutzer und App in MySQL gespeichert und eine Stunde lang in Redis gecacht, und `prompt=none` ging nur dann still durch, wenn die App genau die Scopes wollte, die schon erteilt waren. Alles darüber hinaus führte zurück auf die Zustimmungsseite. Genau so soll es sein.
+
+**Rate Limits in Redis.** Fünf fehlgeschlagene Logins von einer IP sperrten sie, bis der Zähler fünf Minuten nach dem ersten Fehlversuch ablief. Ein erfolgreicher Login setzte ihn zurück. Klein, und genau das, was ein Login-Formular im offenen Netz braucht.
+
+**RS256, festgelegt.** Tokens wurden asymmetrisch signiert, und die Prüfung übergab `algorithms: ['RS256']`, was die Tricks mit `alg: none` und HMAC mit dem öffentlichen Schlüssel ausschließt. Angefangen hatte ich mit HS256 und bin an Silvester umgestiegen, in einem Commit mit dem Titel „accidently set algorithms to hmac instead of rsa“. Die Redirect-URI musste exakt dem registrierten Callback entsprechen, `state` und `nonce` waren Pflicht, und Tokens liefen nach zehn Minuten ab.
+
+## Der Implicit Flow, Stand 2019
+
+Der Authorize-Endpunkt akzeptiert `id_token` oder `id_token token`. Aus `packages/service/src/middleware/checks/authorize/authorizeChecks.ts`:
+
+```ts
+// Check if valid implicit response types are set in response_type query
+const responseTypes: Array<String> = query.response_type.split(' ');
+
+switch (responseTypes.length) {
+  case 1:
+    if (responseTypes[0] !== 'id_token')
+      throw new HTTP400Error('missingIdTokenRequest');
+    break;
+  case 2:
+    if (responseTypes.indexOf('id_token') === -1) {
+      throw new HTTP400Error('missingIdTokenRequest');
+    } else if (responseTypes.indexOf('token') === -1) {
+      throw new HTTP400Error('missingTokenRequest');
+    }
+    break;
+```
+
+Im Implicit Flow gibt der Authorization-Endpunkt die Tokens direkt an den Browser, ohne Austausch über einen Hintergrundkanal. OpenID Connect Core beschreibt ihn für Clients im Browser, und Ende 2019 war er bei Bibliotheken und Tutorials für Single-Page-Apps noch weit verbreitet. Für ein paar eigene Apps auf den Domains des Netzwerks war er der kürzeste Weg zu funktionierendem Single Sign-on, und mehr gaben die Ferien nicht her.
+
+Die Empfehlungen waren allerdings schon in Bewegung. Die Security-Entwürfe der OAuth-Arbeitsgruppe lenkten Browser-Apps zum Authorization Code Flow mit PKCE, die SDKs der Identity-Provider für Single-Page-Apps stellten 2019 und 2020 um, und RFC 9700 (2025) hat es festgeschrieben. Heute würde ich mit Code und PKCE anfangen: Die Tokens kommen über einen Hintergrundkanal zurück, und ein abgefangener Code nützt ohne den Verifier nichts.
+
+## Kleinigkeiten, die ich heute aufräumen würde
+
+Den eigenen Code von vor Jahren zu lesen macht vor allem Spaß. Ein paar Details haben mich schmunzeln lassen.
+
+**Tokens im Query-String.** Nach der Zustimmung schickte die Vue-Seite den Nutzer zurück zur App. Aus `packages/frontend/src/views/Home.vue`:
+
+```ts
+successfulResponse(oidc: TOidcInput, data: any) {
+  window.location.href = `${oidc.redirectUri}
+                  ?state=${data.state}
+                  &access_token=${data.access_token}
+                  &id_token=${data.id_token}
+                  &expires_in=${data.expires_in}
+                  &token_type=${data.token_type}`;
+},
+```
+
+OpenID Connect liefert Antworten des Implicit Flow im Fragment der URL, dem Teil nach `#`, und der Grund ist elegant: Der Browser schickt das Fragment nie an einen Server, also landen Tokens dort weder in Access-Logs noch im `Referer`-Header, und nur das JavaScript auf der Callback-Seite sieht sie. Die Parameter hinter ein `#` zu setzen (und durch `encodeURIComponent` zu schicken) wäre eine Änderung von einer Zeile. Das Template-Literal geht übrigens über sechs Zeilen; dass es funktioniert, liegt daran, dass URL-Parser die Zeilenumbrüche entfernen.
+
+**Der Erfolgsfall im `catch`.** Der Server beantwortete eine erfolgreiche Autorisierung mit einem 302 und einem JSON-Body. Mein eigener kleiner HTTP-Client, neojax, behandelte alles außerhalb von 2xx als Fehler, also lief der Erfolgsfall im Error-Handler. Es hat einwandfrei funktioniert. Heute würde ich einfach ein 200 zurückgeben.
+
+**`case 'DEV' || 'DEVELOPMENT'`.** Aus `packages/service/src/server.ts`:
+
+```ts
+switch (process.env.NODE_ENV as string) {
+  case 'DEV' || 'DEVELOPMENT':
+    http.createServer(router).listen(PORT, () => {
+      console.info(`Running server on http://localhost:${PORT}`);
+    });
+    break;
+  case 'PROD' || 'PRODUCTION':
+    // … https.createServer(…) with the SSL key and certificate
+    break;
+```
+
+Das liest sich wie „DEV oder DEVELOPMENT“ und ist ein schönes JavaScript-Rätsel: `||` liefert den ersten truthy Operanden, also ist `'DEV' || 'DEVELOPMENT'` einfach `'DEV'`, und der `case` passt nur auf `DEV`. Der Server startete ohnehin nur mit `DEV` oder `PROD`, also passte jede laufende Instanz, und es hat nie gestört. TypeScript 3.6 hat das ohne Murren kompiliert; aktuelles TypeScript meldet es mit TS2872, „This kind of expression is always truthy“. Derselbe Switch hat mir beigebracht, Umgebungsnamen an einer Stelle zu halten: Der Error-Handler an anderer Stelle prüfte auf `'production'`, einen Namen, den der Server nie benutzte, sein Produktionszweig griff also nie.
+
+## Schlüssel pro App
+
+Beim Registrieren einer App entstand ein RSA-4096-Schlüsselpaar nur für sie. Aus `packages/service/src/services/authorize/service.ts`:
+
+```ts
+const { privateKey, publicKey } = await generateKeyPair('rsa', {
+  modulusLength: 4096,
+  publicKeyEncoding: {
+    type: 'spki',
+    format: 'pem'
+  },
+  privateKeyEncoding: {
+    type: 'pkcs8',
+    format: 'pem'
+  }
+});
+```
+
+Die Tokens einer App wurden mit ihrem eigenen Schlüssel signiert, die Login-Session des Providers mit einem separaten globalen Schlüsselpaar. Bei ein paar eigenen Apps, deren Konfiguration wir selbst in der Hand hatten, war es einfach, jeder App ihren Schlüssel zu geben, und es hat funktioniert. Weniger gut passt das Design, sobald andere Leute die Apps betreiben: Dann will man einen Schlüsselsatz für den Issuer, veröffentlicht als JWKS-Dokument, eine `kid` in jedem Token, damit Clients den richtigen Schlüssel finden und man rotieren kann, und einen `aud`-Claim, damit jeder Client prüfen kann, dass ein Token für ihn gedacht war. Zusammen mit einem Discovery-Dokument unter `/.well-known/openid-configuration` können sich Clients dann selbst konfigurieren.
+
+Discovery und JWKS lösen das Problem, dass sich Fremde an einen anbinden. Dieses Problem hatte LuminuNET noch nicht. Im Repo steckt sogar schon der Keim der Idee: `claims.json` verwendet bereits die Feldnamen des Discovery-Dokuments, `claims_supported` und `scopes_supported`.
+
+## Wie ich es heute bauen würde
+
+- **Authorization Code mit PKCE**, und die Session des Providers in einem HttpOnly-Cookie.
+- **Discovery und JWKS**, ein Schlüsselsatz für den Issuer, eine `kid` an jedem Token, Rotation.
+- **Tokens nach Spezifikation**: `sub`, `aud` und `at_hash`, wo es passt.
+- **Eine zertifizierte Bibliothek für das Protokoll**, etwa `oidc-provider` von panva, mit der XenForo-Brücke als eigenem Teil.
+
+Der letzte Punkt ist der schöne. Das Stück, das wirklich LuminuNET-spezifisch war, ein Passwort gegen die Hashes des Forums prüfen und einen Nutzer mit seinen Gruppen zurückgeben, ist das Stück, das ich mit 18 am besten hinbekommen habe. Alles andere ist die Spezifikation, und die drei Wochen, in denen ich sie von Hand umgesetzt habe, sind ein großer Teil davon, warum ich sie heute so gut verstehe.

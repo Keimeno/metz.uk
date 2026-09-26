@@ -1,0 +1,144 @@
+---
+title: "Building an OpenID Connect server at 18"
+description: "Christmas 2019: single sign-on for a Minecraft network, on its forum's accounts. What it needed, what I built in three weeks, what held up, and how I'd grow it today."
+slug: "oidc-at-18"
+published: 2026-10-15
+draft: true
+---
+
+Over the Christmas holidays of 2019, between 14 December and 7 January, I wrote an OpenID Connect provider for LuminuNET, a Minecraft network whose accounts lived in a XenForo forum. I was 18 and still at school. The network was about to get its first web tools, and I wanted every one of them to know who you were the moment you'd logged in once with your forum account.
+
+The code is public at [Keimeno/oidc-server](https://github.com/Keimeno/oidc-server). I reread it this year, and I liked more of it than I expected. This is what the network needed, what I built, what held up, and how I'd grow it today.
+
+## What the network needed
+
+The constraints were clear, and they shaped every decision:
+
+- **The forum was the source of truth.** Usernames, emails, group ranks and password hashes all lived in XenForo's MySQL database. Migrating anyone's password was out of the question, and nobody wanted a second account.
+- **A handful of first-party apps.** A page for redeeming beta keys, a chat moderation panel, the website. All of them built and run by the same small team.
+- **The stack we already had.** Node, MySQL and Redis were already running for the network; whatever I built had to fit next to them.
+- **One person, one holiday.** Three and a half weeks, between school terms.
+
+I could have written a shared login form and copied it into every app. I wanted a standard instead, so the apps wouldn't each invent their own idea of a session. OpenID Connect was the obvious one.
+
+## What I built
+
+A TypeScript service on an alpha of Express 5, with a small Vue 2 frontend for the login and consent pages, in German and English. You logged in with your forum username or email and password, the service checked them against the forum's own tables, a consent page showed what the app wanted, and the service handed back an ID token and an access token, both JWTs signed with RS256. An admin API registered client apps. It came to 128 commits in three and a half weeks, and went public in May 2020.
+
+## The bridge to XenForo
+
+The part I'm still proudest of is the smallest. XenForo keeps each user's login data PHP-serialised in `xf_user_authenticate`, and PHP writes bcrypt hashes with a `$2y$` prefix. The Node bcrypt binding I used only accepted `$2a$` and `$2b$`. It's the same algorithm under PHP's label, so the service relabels the prefix and compares. From `packages/service/src/middleware/checks/authorize/loginChecks.ts`:
+
+```ts
+const unserializedHash = unserialize(serializedHash[0]['data'].toString());
+
+let passwordHash: string = unserializedHash['hash'];
+
+// Need to replace the hash prefix because xenforo uses an old
+// hashing format and bcrypt doesn't support this anymore
+passwordHash = passwordHash.replace('y', 'a');
+```
+
+The comment's reasoning is a little off (`$2y$` isn't older, it's PHP's own marker), and `replace('y', 'a')` works because the prefix guarantees the first `y` is the third character. But the result is exactly what the network needed: every forum account could sign in unchanged, no resets, no migration, and the forum stayed the one place that decided who someone was and which group they belonged to.
+
+## What held up
+
+**A consent screen that remembers.** The page showed the app's name and what it was asking for. Grants were stored per user and per app in MySQL and cached in Redis for an hour, and `prompt=none` only went through silently if the app asked for exactly the scopes granted before. Anything more went back to the consent page. That's exactly the behaviour you want.
+
+**Rate limits in Redis.** Five failed logins from one IP locked it out until the counter expired, five minutes after the first failure. A successful login cleared it. Small, and exactly what a login form on the open internet needs.
+
+**RS256, pinned.** Tokens were signed asymmetrically, and verification passed `algorithms: ['RS256']`, which shuts out the `alg: none` and HMAC-with-the-public-key tricks. I'd started with HS256 and switched on New Year's Eve, in a commit titled "accidently set algorithms to hmac instead of rsa". The redirect URI had to match the registered callback exactly, `state` and `nonce` were mandatory, and tokens expired after ten minutes.
+
+## The implicit flow, as of 2019
+
+The authorize endpoint accepts `id_token` or `id_token token`. From `packages/service/src/middleware/checks/authorize/authorizeChecks.ts`:
+
+```ts
+// Check if valid implicit response types are set in response_type query
+const responseTypes: Array<String> = query.response_type.split(' ');
+
+switch (responseTypes.length) {
+  case 1:
+    if (responseTypes[0] !== 'id_token')
+      throw new HTTP400Error('missingIdTokenRequest');
+    break;
+  case 2:
+    if (responseTypes.indexOf('id_token') === -1) {
+      throw new HTTP400Error('missingIdTokenRequest');
+    } else if (responseTypes.indexOf('token') === -1) {
+      throw new HTTP400Error('missingTokenRequest');
+    }
+    break;
+```
+
+In the implicit flow the authorization endpoint hands the tokens straight to the browser, with no back-channel exchange. OpenID Connect Core describes it for browser-based clients, and at the end of 2019 it was still widely used by single-page app libraries and tutorials. For a few first-party apps on the network's own domains, it was the shortest path to working single sign-on, and that's what the holidays allowed.
+
+The guidance was already moving, though. The OAuth security drafts were steering browser apps towards the authorization code flow with PKCE, identity providers' single-page app SDKs switched over around 2019 and 2020, and RFC 9700 (2025) settled it. Today I'd start with code and PKCE: the tokens come back over a back channel, and a stolen code is useless without the verifier.
+
+## Small things I'd tidy up
+
+Rereading your own code from years ago is mostly fun. A few details made me smile.
+
+**Tokens in the query string.** After consent, the Vue page sent the user back to the app. From `packages/frontend/src/views/Home.vue`:
+
+```ts
+successfulResponse(oidc: TOidcInput, data: any) {
+  window.location.href = `${oidc.redirectUri}
+                  ?state=${data.state}
+                  &access_token=${data.access_token}
+                  &id_token=${data.id_token}
+                  &expires_in=${data.expires_in}
+                  &token_type=${data.token_type}`;
+},
+```
+
+OpenID Connect returns implicit-flow responses in the URL fragment, the part after `#`, and the reason is neat: the browser never sends the fragment to a server, so tokens there stay out of access logs and `Referer` headers, and only JavaScript on the callback page sees them. Moving these parameters behind a `#` (and through `encodeURIComponent`) would be a one-line change. The template literal spans six lines, too; it only works because URL parsers strip the newlines.
+
+**A happy path in `catch`.** The server answered a successful authorization with a 302 and a JSON body. My own little HTTP client, neojax, treated anything outside 2xx as an error, so the success path lived in the error handler. It worked fine. I'd just return a 200 today.
+
+**`case 'DEV' || 'DEVELOPMENT'`.** From `packages/service/src/server.ts`:
+
+```ts
+switch (process.env.NODE_ENV as string) {
+  case 'DEV' || 'DEVELOPMENT':
+    http.createServer(router).listen(PORT, () => {
+      console.info(`Running server on http://localhost:${PORT}`);
+    });
+    break;
+  case 'PROD' || 'PRODUCTION':
+    // … https.createServer(…) with the SSL key and certificate
+    break;
+```
+
+It reads as "DEV or DEVELOPMENT", and it's a lovely JavaScript puzzle: `||` returns its first truthy operand, so `'DEV' || 'DEVELOPMENT'` is just `'DEV'`, and the `case` only ever matches `DEV`. The server only started with `DEV` or `PROD` set, so every running instance matched and it never bit. TypeScript 3.6 compiled it without a word; current TypeScript flags it with TS2872, "This kind of expression is always truthy". The same switch taught me to keep environment names in one place: the error handler elsewhere checked for `'production'`, a name the server never used, so its production branch never kicked in.
+
+## Keys per app
+
+Registering an app generated an RSA-4096 key pair just for it. From `packages/service/src/services/authorize/service.ts`:
+
+```ts
+const { privateKey, publicKey } = await generateKeyPair('rsa', {
+  modulusLength: 4096,
+  publicKeyEncoding: {
+    type: 'spki',
+    format: 'pem'
+  },
+  privateKeyEncoding: {
+    type: 'pkcs8',
+    format: 'pem'
+  }
+});
+```
+
+The tokens an app received were signed with its own key, and the provider's login session with a separate global key pair. With a few first-party apps whose configuration we controlled, handing each app its key was simple and it worked. The design pays off less once apps are run by other people: then you want one issuer key set published as a JWKS document, a `kid` in every token so clients pick the right key and you can rotate, and an `aud` claim so each client can check a token was meant for it. Together with a discovery document at `/.well-known/openid-configuration`, that lets clients configure themselves.
+
+Discovery and JWKS solve the problem of strangers integrating with you. LuminuNET didn't have that problem yet. The repo even has a seed of the idea: `claims.json` already uses the discovery document's field names, `claims_supported` and `scopes_supported`.
+
+## How I'd build it today
+
+- **Authorization code with PKCE**, and the provider's session in an HttpOnly cookie.
+- **Discovery and JWKS**, one issuer key set, a `kid` on every token, rotation.
+- **Tokens shaped like the spec**: `sub`, `aud`, and `at_hash` where it applies.
+- **A certified library for the protocol**, such as panva's `oidc-provider`, with the XenForo bridge as the custom part.
+
+That last point is the nice one. The piece that was genuinely specific to LuminuNET, checking a password against the forum's hashes and returning a user with its groups, is the piece I got most right at 18. Everything else is the spec, and the three weeks I spent implementing it by hand are a big part of why I understand it as well as I do.
