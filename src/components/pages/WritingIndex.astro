@@ -1,0 +1,150 @@
+---
+// The writing, in either language.
+import Page from "../../layouts/Page.astro";
+import { getPosts, readingMinutes } from "../../lib/content";
+import { itemList } from "../../lib/seo";
+import {
+  alternatesOf,
+  INTL_LOCALE,
+  postPath,
+  route,
+  rssPath,
+  type Locale,
+} from "../../i18n/routes";
+import { useT } from "../../i18n/ui";
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = useT(locale);
+const posts = await getPosts();
+/** Drafts are listed on the page but not in the structured data. */
+const published = posts
+  .map((p) => p[locale])
+  .filter((entry) => !entry.data.draft)
+  .map((entry) => ({ name: entry.data.title, path: postPath(entry.data.slug, locale) }));
+const date = new Intl.DateTimeFormat(INTL_LOCALE[locale], {
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+});
+const title = locale === "de" ? "Texte · Constantin Metz" : "Writing · Constantin Metz";
+const description =
+  locale === "de"
+    ? "Texte von Constantin Metz: wie der Thread auf metz.uk funktioniert, eine Monte-Carlo-Engine in TypeScript und ein OpenID-Connect-Server mit 18."
+    : "Writing by Constantin Metz: how the thread on metz.uk works, a Monte Carlo engine in pure TypeScript, and an OpenID Connect server written at 18.";
+---
+
+<Page
+  title={title}
+  description={description}
+  locale={locale}
+  alternates={alternatesOf("writing")}
+  section="writing"
+  ld={{
+    type: "CollectionPage",
+    crumbs: [[t("writing.title"), route("writing", locale)]],
+    ...(published.length ? { mainEntity: itemList(published) } : {}),
+  }}>
+  <div class="wrap">
+    <header class="page-head">
+      <p class="eyebrow">{t("writing.title")}</p>
+      <h1>{t("writing.title")}</h1>
+      <p class="lede">{t("writing.lede")}</p>
+    </header>
+    <ol class="posts">
+      {posts.map((post) => {
+        const entry = post[locale];
+        return (
+          <li class="post">
+            <p class="post__meta">
+              <time datetime={entry.data.published.toISOString().slice(0, 10)}>
+                {date.format(entry.data.published)}
+              </time>
+              <span>
+                {readingMinutes(entry.body)} {t("writing.minutes")}
+              </span>
+              {entry.data.draft && <span class="badge">{t("writing.draft")}</span>}
+            </p>
+            <h2>
+              <a href={postPath(entry.data.slug, locale)}>{entry.data.title}</a>
+            </h2>
+            <p class="post__desc">{entry.data.description}</p>
+          </li>
+        );
+      })}
+    </ol>
+    <p class="rss">
+      <a class="text-link" href={rssPath(locale)}>
+        {t("writing.rss")}
+      </a>
+    </p>
+  </div>
+</Page>
+
+<style>
+  .posts {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--hair);
+  }
+  .post {
+    position: relative;
+    display: grid;
+    gap: 10px;
+    padding: 34px 0;
+    border-bottom: 1px solid var(--hair);
+  }
+  .post__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 16px;
+    margin: 0;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  h2 {
+    max-width: 24ch;
+    margin: 0;
+    font-size: clamp(26px, 3vw, 40px);
+    font-weight: 500;
+    letter-spacing: -0.035em;
+    line-height: 1.08;
+    text-wrap: balance;
+  }
+  h2 a {
+    text-decoration: none;
+  }
+  h2 a::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+  }
+  .post:hover h2 a {
+    text-decoration: underline;
+    text-decoration-color: var(--hair-strong);
+    text-underline-offset: 8px;
+  }
+  .post__desc {
+    max-width: 62ch;
+    margin: 0;
+    color: var(--text-2);
+  }
+  .badge {
+    padding: 2px 7px;
+    border: 1px solid var(--hair-strong);
+    border-radius: 999px;
+    color: var(--text-2);
+  }
+  .rss {
+    margin: 32px 0 0;
+    font-size: 15px;
+  }
+</style>
