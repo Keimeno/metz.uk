@@ -1,0 +1,192 @@
+---
+title: "1,000 market futures in a pure-TS engine"
+description: "How Zenarios simulates up to 1,000 market futures on the phone: Student-t returns, AR(1) inflation, a seeded generator per trial and US market history."
+slug: "thousand-market-futures"
+published: 2026-10-15
+draft: true
+---
+
+The forecast in [Zenarios](/work/zenarios/) is a single line: the plan's own assumptions, compounded month by month. Markets don't return 5 % every year, though, so the Markets screen runs the same plan through up to 1,000 simulated futures and reports how often the money lasts and how wide the spread gets. The fan of lines on this site's home page is that simulation for the app's built-in example household: 1,000 futures of 645 months each, computed by the app's own engine and committed to this site as data.
+
+## Why pure TypeScript
+
+Three constraints decided it.
+
+**It has to run on the phone.** A plan never leaves the device, so there is no server to simulate on. The app has no background threads either. The Monte Carlo runs on the JavaScript thread in slices of 12 ms (`runInSlices` in `stressScheduler.ts`) and yields to the UI between slices. The screen shows a first estimate after 100 futures and refreshes at most every 300 ms while the rest run.
+
+**It has to be deterministic.** The same plan has to produce the same futures today, after an app update, in the test suite and in this site's generator. That rules out `Math.random`, and less obviously `Math.exp`, `Math.log` and `Math.pow`: the spec only asks them to approximate, and Hermes on the phone rounds differently from V8 in Node. The engine's lint config turns that into an error. From `eslint.config.js`:
+
+```js
+{
+  files: ["src/engine/**/*.ts"],
+  ignores: testFiles,
+  rules: {
+    "no-restricted-imports": ["error", { patterns: [noFixtures, pureLayer] }],
+    // Projections must be bit-identical on every JS engine: exp, log and pow are only
+    // approximated by the spec, and randomness must come from the seeded generator.
+    "no-restricted-properties": [
+      "error",
+      ...["random", "pow", "exp", "log", "log1p", "log2", "log10", "expm1"].map((property) => ({
+        object: "Math",
+        property,
+        message: "Use the deterministic helpers in src/engine/math or src/engine/stochastic.",
+      })),
+    ],
+```
+
+The `**` operator is banned the same way. The replacements live in `src/engine/stochastic/detMath.ts`: `detExp` splits off multiples of ln 2 and sums a 14-term Taylor series, `detLog` scales by powers of two and sums an atanh series, and both use nothing but the four basic operations. `Math.sqrt` stays, because the spec requires it to be correctly rounded. A test holds both helpers to the built-ins within a relative error of 1e-14.
+
+**It has to be testable.** The `pureLayer` pattern above keeps React Native, Expo and storage out of the engine, so Jest runs exactly the code the phone runs, under Node. This site's generator depends on the same property: it bundles the engine with esbuild and throws if anything from `react-native`, `expo` or `react` ends up in the bundle.
+
+## One future, one year at a time
+
+A future is a `MarketPath`: for every year, inflation, an investment return, savings interest and property growth, each in whole basis points. `drawMarketPath` in `src/engine/stochastic/marketModel.ts` builds it year by year:
+
+```ts
+for (let year = 0; year < years; year += 1) {
+  const inflationShock = standardNormal(prng);
+  const returnNoise = standardNormal(prng);
+  const tail = studentTScale(prng, model.tailDegrees);
+  const propertyNoise = standardNormal(prng);
+
+  inflation = clamp(
+    Math.round(
+      meanInflation +
+        model.inflationPersistence * (inflation - meanInflation) +
+        model.inflationShockBp * inflationShock
+    ),
+    model.inflationMinBp,
+    model.inflationMaxBp
+  );
+  const returnShock = (rho * inflationShock + Math.sqrt(1 - rho * rho) * returnNoise) * tail;
+```
+
+The standard draws come in the same order every year, and only afterwards are they scaled to the plan's assumptions. That ordering matters more than it looks: two scenarios of one plan with different return assumptions still meet the same good and bad years, so a comparison shows the decision, not the dice.
+
+### Fat tails
+
+The return shock is a normal draw, correlated at −0.2 with the inflation shock, multiplied by `tail`. That factor turns it into a Student t with 5 degrees of freedom. From `src/engine/stochastic/normal.ts`:
+
+```ts
+export function studentTScale(prng: Prng, degrees: number): number {
+  let chiSquare = 0;
+  for (let index = 0; index < degrees; index += 1) {
+    const z = standardNormal(prng);
+    chiSquare += z * z;
+  }
+  return Math.sqrt(degrees / Math.max(chiSquare, 1e-12)) * Math.sqrt((degrees - 2) / degrees);
+}
+```
+
+A normal divided by the square root of a chi-square over its degrees of freedom is the textbook construction of a t variable. The second factor scales it back to unit variance, so the volatility setting keeps its meaning and only the shape changes. With 5 degrees of freedom the excess kurtosis is 6: more quiet years and more extreme ones than a normal model gives at the same standard deviation. It costs five extra normal draws a year.
+
+The shock then becomes a log return around the logarithm of one plus the plan's assumption, so the median year returns exactly what the plan assumes: half of all futures do better, half worse. Volatility is the plan's own setting, or follows from its return: 6 % for a cautious portfolio, 10 % for a balanced one, 15 % for growth. A single year is clamped between −90 % and +250 %.
+
+The normals themselves come from inverting the normal CDF with Acklam's rational approximation, one uniform in and one normal out. The uniforms are (k + 0.5) / 2³², never exactly 0 or 1, so the inverse never returns infinity.
+
+### Inflation that remembers
+
+Inflation is an AR(1) process around the plan's assumption: each year keeps 60 % of last year's deviation and adds a normal shock of 1.2 percentage points, clamped between −1 % and 15 %. The persistence is what produces runs of high-inflation years instead of isolated spikes. In the long run the spread settles at 1.2 / √(1 − 0.6²) = 1.5 points. Savings interest moves by 70 % of inflation's deviation from the assumption, and property growth swings by 5 % a year, leaning with inflation at a correlation of 0.3.
+
+### Why whole basis points
+
+Every rate is rounded to a basis point before the engine sees it. The engine turns an annual rate into a monthly factor by solving f¹² = 1 + r with a fixed eight Newton steps, using integer powers only, and caches the factor per rate. Whole basis points keep that cache small and every month's growth reproducible to the last bit.
+
+## A generator per future
+
+From `src/engine/stochastic/prng.ts`:
+
+```ts
+export function trialPrng(seed: number, trial: number): Prng {
+  let state = (seed ^ Math.imul(trial + 1, 0x9e3779b9)) | 0;
+  const words: number[] = [];
+  for (let index = 0; index < 4; index += 1) {
+    const step = splitmix32(state);
+    words.push(step.value);
+    state = step.state;
+  }
+  const prng = createSfc32(words[0], words[1], words[2], words[3]);
+  for (let index = 0; index < WARM_UP; index += 1) prng.next();
+  return prng;
+}
+```
+
+The seed is an FNV-1a hash of the plan's id, so every scenario of a plan faces the same futures. Each trial mixes its number into that seed, splitmix32 expands the result into the 128-bit state of an sfc32 generator, and twelve warm-up draws let the state mix before the first number is used. All of it is 32-bit integer arithmetic through `Math.imul` and `| 0`, which every engine does identically.
+
+The alternative, one generator for the whole run, makes the numbers of trial 417 depend on how many numbers trials 0 to 416 consumed. With a generator per trial, a future depends on two values, the seed and its index, and on nothing else. Three things follow:
+
+- **Slicing doesn't matter.** The app runs as many trials as fit into 12 ms, which depends on the device and on whatever else is going on. The results don't.
+- **Stopping early changes nothing that already ran.** The first 300 futures of a 1,000-future run are exactly the futures of a run that stopped at 300.
+- **Any future can be redrawn on its own.** The run exposes `pathFor(trial)`, so one future can be replayed in full detail without the other 999.
+
+The test that pins the first point, from `src/engine/__tests__/stochastic.test.ts`:
+
+```ts
+it("gives the same results however the work is split", () => {
+  const snapshot = soloShortfall();
+  const config = { seed: 7, maxTrials: 12, minTrials: 12, targetStandardErrorBp: 0 };
+  const whole = createMonteCarloRun(snapshot, registry, config);
+  whole.step(12);
+  const pieces = createMonteCarloRun(snapshot, registry, config);
+  while (!pieces.finished()) pieces.step(5);
+  expect(pieces.trials().netWorth).toEqual(whole.trials().netWorth);
+  expect(pieces.trials().firstShortfall).toEqual(whole.trials().firstShortfall);
+});
+```
+
+A second test pins golden values: the seed of a fixed plan id and the first two numbers of its trial 0. If those ever change, every simulation in the app changes with them, and the test says so first.
+
+## Market history instead of a model
+
+The model is one view of the future; history is another. The engine ships US market years from 1872 to 2025, built from Robert Shiller's data (stocks, 10-year Treasuries and inflation, December to December), with Treasury bills from Aswath Damodaran from 1928 and a proxy from Shiller's one-year rate before that. A future built from history blends stocks and bonds at the stock share the plan's volatility implies (30 %, 60 % or 90 % for the three presets), rebalanced once a year. In `relative` mode ("Around your assumptions" in the app) it keeps history's sequence of good and bad years but rescales returns so their long-run geometric mean matches the plan's assumption; `nominal` ("As it happened") replays the figures as they were.
+
+The Markets screen can run one future per start year: every year from which at least 40 years of data follow, or the plan's length if that is shorter. For a long plan that means 1872 to 1986, 115 futures. They form a source with a fixed number of trials, so they never stop early, and because the windows overlap, the app reports how many start years work as a count, not as a probability. The stress tests replay single episodes instead (1929, 1966, 1973, 2000 or 2008) starting either today or in the month you retire.
+
+The engine also has a circular block bootstrap that strings random 10-year runs of history together, seeded per trial like the model. The app doesn't offer it yet.
+
+The data build guards all of this with assertions: no missing years, stocks below −40 % in 1931 and above +40 % in 1933, average inflation above 7 % from 1973 to 1981, and a correlation above 0.97 with Damodaran's own series.
+
+## Early stopping
+
+Most plans don't need 1,000 futures for a stable answer. The app's defaults are a minimum of 300 and a maximum of 1,000, and in between the run stops as soon as the standard error of the success rate (the share of futures in which the money never runs out) is down to 1.2 percentage points. From `src/engine/stochastic/monteCarlo.ts`:
+
+```ts
+// A fixed set of trials (history's start years) always runs in full.
+const finished = () =>
+  completed >= max ||
+  (fixed === undefined &&
+    completed >= min &&
+    standardErrorBp(successes, completed) <= config.targetStandardErrorBp);
+```
+
+For the example household on this site the success rate is about 99.7 %, so a run with the engine's default settings stops at its minimum of 300. A plan at 90 % stops after roughly 625 futures, and one near 50 % runs all 1,000. The quick answer in the app's Ask tab uses a smaller budget, 150 to 400 futures at 1.5 points. Stopping on the very number you are estimating is a sequential rule, so the 1.2 points are a target rather than a guarantee; for choosing between "very likely" and "uncertain" that is precise enough.
+
+This site doesn't stop early at all. Its generator, `scripts/gen/zenarios-entry.ts`, passes `minTrials: 1000`, `maxTrials: 1000` and `targetStandardErrorBp: 0`, because the picture needs every line.
+
+## Stratified order, on this site only
+
+This part isn't in the app, and it's easy to blur. The engine runs its trials in index order. Every trial is an independent draw, so any prefix of a run is already an unbiased random sample, which is all early stopping needs.
+
+The home page has a different problem. Depending on the device it draws 1,000, 512 or 256 of the lines, and a random 256 can miss the extremes by chance, which would make the fan look narrower on a phone than on a desktop. So the site's generator, `scripts/gen/zenarios.mjs`, sorts the futures by their final net worth and stores them in bit-reversed rank order:
+
+```js
+const finals = Array.from({ length: trials.count }, (_, t) => ({ t, v: trials.netWorth[t * years + years - 1] }));
+finals.sort((a, b) => a.v - b.v);
+const bits = Math.ceil(Math.log2(trials.count));
+const order = [];
+for (let k = 0; k < 1 << bits; k++) {
+  let r = 0;
+  for (let b = 0; b < bits; b++) if (k & (1 << b)) r |= 1 << (bits - 1 - b);
+  if (r < trials.count) order.push(r);
+}
+```
+
+Reversing the bits of 0, 1, 2, 3 over ten bits gives the ranks 0, 512, 256, 768, and ranks above 999 are skipped. The first 256 entries are then roughly every fourth rank across the whole range, the first 512 roughly every second. Any prefix is a stratified sample of the spread, so a phone drawing 256 lines shows the same shape as a desktop drawing all 1,000.
+
+## How fast it is
+
+`src/engine/__tests__/performance.test.ts` keeps the cost of a single future in check. When it was last calibrated, a lean 40-year run of a German family plan took about 5.7 ms under Node on an M-series Mac, against a budget of 7 ms (CI machines get slack). Timing the site's run, 1,000 futures of 645 months for the example household, gives about 4 seconds on my M5 Pro under Node 24: around 4 ms per future. On the phone the same code runs under Hermes, in slices. I haven't benchmarked that, so I won't quote a number.
+
+## What it keeps simple
+
+It draws one portfolio return a year, not separate asset classes. History is US only. In history mode property follows the plan's assumption, because the dataset has no house prices. And the parameters (5 degrees of freedom, a persistence of 0.6, the correlations) are fixed choices, not values fitted to data. They are versioned, though: `MARKET_MODEL_VERSION` is part of every run's identity, next to the engine version, the seed and a hash of the plan, so every result says which model produced it.

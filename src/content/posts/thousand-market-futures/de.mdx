@@ -1,0 +1,192 @@
+---
+title: "1.000 Marktszenarien in einer reinen TypeScript-Engine"
+description: "Wie Zenarios bis zu 1.000 Marktszenarien auf dem Handy simuliert: Student-t-Renditen, AR(1)-Inflation, ein Generator pro Szenario und US-Börsengeschichte."
+slug: "tausend-marktszenarien"
+published: 2026-10-15
+draft: true
+---
+
+Die Prognose in [Zenarios](/de/projekte/zenarios/) ist eine einzige Linie: die Annahmen des Plans, Monat für Monat verzinst. Nur bringen Märkte nicht jedes Jahr 5 %. Deshalb rechnet der Markt-Screen denselben Plan in bis zu 1.000 simulierten Marktszenarien durch und zeigt, wie oft das Geld reicht und wie weit die Ergebnisse auseinanderliegen. Der Fächer aus Linien auf der Startseite dieser Website ist genau diese Simulation, für den eingebauten Beispielhaushalt der App: 1.000 Szenarien mit je 645 Monaten, gerechnet von der Engine der App selbst und als Daten in diese Website eingecheckt.
+
+## Warum reines TypeScript
+
+Drei Anforderungen haben das entschieden.
+
+**Es muss auf dem Handy laufen.** Ein Plan verlässt das Gerät nie, also gibt es keinen Server, auf dem simuliert werden könnte. Hintergrund-Threads hat die App auch keine. Die Monte-Carlo-Simulation läuft auf dem JavaScript-Thread in Häppchen von 12 ms (`runInSlices` in `stressScheduler.ts`) und gibt dazwischen die Oberfläche frei. Nach 100 Szenarien zeigt der Screen eine erste Schätzung und aktualisiert sie höchstens alle 300 ms, während der Rest läuft.
+
+**Es muss deterministisch sein.** Derselbe Plan muss dieselben Szenarien liefern: heute, nach einem App-Update, in der Testsuite und im Generator dieser Website. Damit fällt `Math.random` weg, und weniger offensichtlich auch `Math.exp`, `Math.log` und `Math.pow`. Die Spezifikation verlangt von ihnen nur Näherungen, und Hermes auf dem Handy rundet anders als V8 in Node. Die Lint-Konfiguration der Engine macht daraus einen Fehler. Aus `eslint.config.js`:
+
+```js
+{
+  files: ["src/engine/**/*.ts"],
+  ignores: testFiles,
+  rules: {
+    "no-restricted-imports": ["error", { patterns: [noFixtures, pureLayer] }],
+    // Projections must be bit-identical on every JS engine: exp, log and pow are only
+    // approximated by the spec, and randomness must come from the seeded generator.
+    "no-restricted-properties": [
+      "error",
+      ...["random", "pow", "exp", "log", "log1p", "log2", "log10", "expm1"].map((property) => ({
+        object: "Math",
+        property,
+        message: "Use the deterministic helpers in src/engine/math or src/engine/stochastic.",
+      })),
+    ],
+```
+
+Der Operator `**` ist auf dieselbe Weise verboten. Den Ersatz liefert `src/engine/stochastic/detMath.ts`: `detExp` spaltet Vielfache von ln 2 ab und summiert eine Taylorreihe mit 14 Gliedern, `detLog` skaliert mit Zweierpotenzen und summiert eine Artanh-Reihe, beide nur mit den vier Grundrechenarten. `Math.sqrt` darf bleiben, weil die Spezifikation dort korrektes Runden vorschreibt. Ein Test hält beide Funktionen auf einen relativen Fehler von 1e-14 an den eingebauten.
+
+**Es muss testbar sein.** Das Muster `pureLayer` oben hält React Native, Expo und den Speicher aus der Engine heraus. Jest führt also unter Node genau den Code aus, der auf dem Handy läuft. Der Generator dieser Website verlässt sich auf dieselbe Eigenschaft: Er bündelt die Engine mit esbuild und bricht ab, sobald etwas aus `react-native`, `expo` oder `react` im Bundle landet.
+
+## Ein Szenario, Jahr für Jahr
+
+Ein Szenario ist ein `MarketPath`: für jedes Jahr Inflation, Anlagerendite, Sparzins und Immobilienwachstum, jeweils in ganzen Basispunkten. `drawMarketPath` in `src/engine/stochastic/marketModel.ts` baut es Jahr für Jahr auf:
+
+```ts
+for (let year = 0; year < years; year += 1) {
+  const inflationShock = standardNormal(prng);
+  const returnNoise = standardNormal(prng);
+  const tail = studentTScale(prng, model.tailDegrees);
+  const propertyNoise = standardNormal(prng);
+
+  inflation = clamp(
+    Math.round(
+      meanInflation +
+        model.inflationPersistence * (inflation - meanInflation) +
+        model.inflationShockBp * inflationShock
+    ),
+    model.inflationMinBp,
+    model.inflationMaxBp
+  );
+  const returnShock = (rho * inflationShock + Math.sqrt(1 - rho * rho) * returnNoise) * tail;
+```
+
+Die standardisierten Zufallszahlen kommen jedes Jahr in derselben Reihenfolge, und erst danach werden sie auf die Annahmen des Plans skaliert. Das ist wichtiger, als es aussieht: Zwei Varianten eines Plans mit unterschiedlicher Renditeannahme erleben trotzdem dieselben guten und schlechten Jahre. Ein Vergleich zeigt also die Entscheidung und nicht den Würfel.
+
+### Fat Tails
+
+Der Renditeschock ist normalverteilt, mit einer Korrelation von −0,2 an den Inflationsschock gekoppelt und mit `tail` multipliziert. Dieser Faktor macht daraus eine Student-t-Verteilung mit 5 Freiheitsgraden. Aus `src/engine/stochastic/normal.ts`:
+
+```ts
+export function studentTScale(prng: Prng, degrees: number): number {
+  let chiSquare = 0;
+  for (let index = 0; index < degrees; index += 1) {
+    const z = standardNormal(prng);
+    chiSquare += z * z;
+  }
+  return Math.sqrt(degrees / Math.max(chiSquare, 1e-12)) * Math.sqrt((degrees - 2) / degrees);
+}
+```
+
+Eine standardnormalverteilte Zahl, geteilt durch die Wurzel aus einer Chi-Quadrat-Größe pro Freiheitsgrad, ist die Lehrbuchkonstruktion einer t-Verteilung. Der zweite Faktor skaliert sie zurück auf Varianz 1, damit die Volatilitätseinstellung ihre Bedeutung behält und sich nur die Form ändert. Bei 5 Freiheitsgraden beträgt der Exzess 6: mehr ruhige und mehr extreme Jahre als bei einer Normalverteilung mit derselben Standardabweichung. Das kostet fünf zusätzliche Zufallszahlen pro Jahr.
+
+Aus dem Schock wird dann eine logarithmische Rendite um den Logarithmus von eins plus der Annahme des Plans. Das mittlere Jahr bringt also genau, was der Plan annimmt: Die Hälfte der Szenarien schneidet besser ab, die Hälfte schlechter. Die Volatilität ist die eigene Einstellung des Plans oder folgt aus seiner Rendite: 6 % für ein vorsichtiges Portfolio, 10 % für ein ausgewogenes, 15 % für ein wachstumsorientiertes. Ein einzelnes Jahr ist auf −90 % bis +250 % begrenzt.
+
+Die normalverteilten Zahlen selbst entstehen durch Invertieren der Verteilungsfunktion mit Acklams rationaler Näherung: eine gleichverteilte Zahl rein, eine normalverteilte raus. Die gleichverteilten Zahlen sind (k + 0,5) / 2³², also nie genau 0 oder 1, sodass die Inverse nie unendlich wird.
+
+### Inflation mit Gedächtnis
+
+Die Inflation ist ein AR(1)-Prozess um die Annahme des Plans: Jedes Jahr behält 60 % der Abweichung des Vorjahres und bekommt einen normalverteilten Schock von 1,2 Prozentpunkten dazu, begrenzt auf −1 % bis 15 %. Erst diese Trägheit erzeugt Phasen hoher Inflation statt einzelner Ausreißer. Langfristig pendelt sich die Streuung bei 1,2 / √(1 − 0,6²) = 1,5 Punkten ein. Der Sparzins bewegt sich mit 70 % der Inflationsabweichung von der Annahme, und das Immobilienwachstum schwankt um 5 % im Jahr, mit einer Korrelation von 0,3 zur Inflation.
+
+### Warum ganze Basispunkte
+
+Jeder Zinssatz wird auf einen Basispunkt gerundet, bevor die Engine ihn sieht. Sie macht aus einem Jahressatz einen Monatsfaktor, indem sie f¹² = 1 + r mit genau acht Newton-Schritten löst, nur mit ganzzahligen Potenzen, und legt den Faktor pro Satz in einem Cache ab. Ganze Basispunkte halten diesen Cache klein und das Wachstum jedes Monats bis aufs letzte Bit reproduzierbar.
+
+## Ein Generator pro Szenario
+
+Aus `src/engine/stochastic/prng.ts`:
+
+```ts
+export function trialPrng(seed: number, trial: number): Prng {
+  let state = (seed ^ Math.imul(trial + 1, 0x9e3779b9)) | 0;
+  const words: number[] = [];
+  for (let index = 0; index < 4; index += 1) {
+    const step = splitmix32(state);
+    words.push(step.value);
+    state = step.state;
+  }
+  const prng = createSfc32(words[0], words[1], words[2], words[3]);
+  for (let index = 0; index < WARM_UP; index += 1) prng.next();
+  return prng;
+}
+```
+
+Der Seed ist ein FNV-1a-Hash der Plan-ID, sodass alle Varianten eines Plans denselben Marktszenarien begegnen. Jeder Trial mischt seine Nummer in diesen Seed, splitmix32 macht daraus den 128-Bit-Zustand eines sfc32-Generators, und zwölf Aufwärmzüge durchmischen den Zustand, bevor die erste Zahl zählt. Das alles ist 32-Bit-Ganzzahlarithmetik über `Math.imul` und `| 0`, und die rechnet jede Engine gleich.
+
+Die Alternative, ein Generator für den ganzen Lauf, macht die Zahlen von Trial 417 davon abhängig, wie viele Zahlen die Trials 0 bis 416 verbraucht haben. Mit einem Generator pro Trial hängt ein Szenario von genau zwei Werten ab, dem Seed und seinem Index, und von nichts sonst. Daraus folgen drei Dinge:
+
+- **Die Häppchen spielen keine Rolle.** Die App rechnet so viele Trials, wie in 12 ms passen, und das hängt vom Gerät ab und davon, was sonst gerade passiert. Die Ergebnisse hängen davon nicht ab.
+- **Früher aufhören ändert nichts, was schon gelaufen ist.** Die ersten 300 Szenarien eines Laufs mit 1.000 sind exakt die Szenarien eines Laufs, der bei 300 stoppt.
+- **Jedes Szenario lässt sich einzeln neu ziehen.** Der Lauf bietet `pathFor(trial)` an, sodass sich ein Szenario im Detail nachspielen lässt, ohne die anderen 999.
+
+Der Test, der den ersten Punkt festschreibt, aus `src/engine/__tests__/stochastic.test.ts`:
+
+```ts
+it("gives the same results however the work is split", () => {
+  const snapshot = soloShortfall();
+  const config = { seed: 7, maxTrials: 12, minTrials: 12, targetStandardErrorBp: 0 };
+  const whole = createMonteCarloRun(snapshot, registry, config);
+  whole.step(12);
+  const pieces = createMonteCarloRun(snapshot, registry, config);
+  while (!pieces.finished()) pieces.step(5);
+  expect(pieces.trials().netWorth).toEqual(whole.trials().netWorth);
+  expect(pieces.trials().firstShortfall).toEqual(whole.trials().firstShortfall);
+});
+```
+
+Ein zweiter Test schreibt goldene Werte fest: den Seed einer festen Plan-ID und die ersten zwei Zahlen ihres Trials 0. Ändern die sich je, ändert sich jede Simulation der App mit, und der Test merkt es zuerst.
+
+## Börsengeschichte statt Modell
+
+Das Modell ist ein Blick in die Zukunft, die Geschichte ein anderer. Die Engine bringt US-Marktjahre von 1872 bis 2025 mit, gebaut aus den Daten von Robert Shiller (Aktien, zehnjährige Staatsanleihen und Inflation, jeweils Dezember bis Dezember), dazu kurzlaufende Staatsanleihen von Aswath Damodaran ab 1928 und davor ein Näherungswert aus Shillers Einjahreszins. Ein Szenario aus der Geschichte mischt Aktien und Anleihen mit dem Aktienanteil, der sich aus der Volatilität des Plans ergibt (30 %, 60 % oder 90 % für die drei Voreinstellungen), einmal im Jahr neu gewichtet. Im Modus `relative` (in der App „An deine Annahmen angepasst“) behält es die historische Abfolge guter und schlechter Jahre, skaliert die Renditen aber so, dass ihr langfristiges geometrisches Mittel der Annahme des Plans entspricht; `nominal` („So wie es war“) spielt die Zahlen ab, wie sie waren.
+
+Der Markt-Screen kann ein Szenario pro Startjahr rechnen: jedes Jahr, auf das noch mindestens 40 Jahre Daten folgen, oder die Laufzeit des Plans, wenn sie kürzer ist. Für einen langen Plan heißt das 1872 bis 1986, also 115 Szenarien. Sie bilden eine Quelle mit fester Trial-Zahl und hören deshalb nie früher auf. Weil sich die Zeitfenster überlappen, nennt die App, wie viele Startjahre aufgehen, als Anzahl und nicht als Wahrscheinlichkeit. Die Stresstests spielen dagegen einzelne Episoden nach (1929, 1966, 1973, 2000 oder 2008), ab heute oder ab dem Monat des Renteneintritts.
+
+Die Engine hat außerdem einen zirkulären Block-Bootstrap, der zufällige Zehnjahresabschnitte der Geschichte aneinanderreiht, mit einem Seed pro Trial wie beim Modell. Die App bietet ihn noch nicht an.
+
+Der Daten-Build sichert das alles mit Assertions ab: keine fehlenden Jahre, Aktien 1931 unter −40 % und 1933 über +40 %, im Schnitt über 7 % Inflation von 1973 bis 1981 und eine Korrelation über 0,97 mit Damodarans eigener Reihe.
+
+## Früher aufhören
+
+Die meisten Pläne brauchen keine 1.000 Szenarien für eine stabile Antwort. Die App rechnet standardmäßig mindestens 300 und höchstens 1.000, und dazwischen hört der Lauf auf, sobald der Standardfehler der Erfolgsquote (des Anteils der Szenarien, in denen das Geld nie ausgeht) bei 1,2 Prozentpunkten liegt. Aus `src/engine/stochastic/monteCarlo.ts`:
+
+```ts
+// A fixed set of trials (history's start years) always runs in full.
+const finished = () =>
+  completed >= max ||
+  (fixed === undefined &&
+    completed >= min &&
+    standardErrorBp(successes, completed) <= config.targetStandardErrorBp);
+```
+
+Beim Beispielhaushalt dieser Website liegt die Erfolgsquote bei etwa 99,7 %, ein Lauf mit den Standardeinstellungen der Engine hört also beim Minimum von 300 auf. Ein Plan bei 90 % stoppt nach ungefähr 625 Szenarien, einer um 50 % rechnet alle 1.000. Die schnelle Antwort im Ask-Tab der App kommt mit weniger aus: 150 bis 400 Szenarien bei 1,5 Punkten. Wer auf genau der Zahl stoppt, die er schätzt, wendet eine sequenzielle Regel an; die 1,2 Punkte sind also ein Ziel, keine Garantie. Um zwischen „sehr wahrscheinlich“ und „unsicher“ zu unterscheiden, reicht das.
+
+Diese Website hört gar nicht früher auf. Ihr Generator, `scripts/gen/zenarios-entry.ts`, übergibt `minTrials: 1000`, `maxTrials: 1000` und `targetStandardErrorBp: 0`, denn das Bild braucht jede Linie.
+
+## Geschichtete Reihenfolge, nur auf dieser Website
+
+Dieser Teil steckt nicht in der App, und das verwischt leicht. Die Engine rechnet ihre Trials in der Reihenfolge ihrer Indizes. Jeder Trial ist ein unabhängiger Zug, also ist jedes Anfangsstück eines Laufs bereits eine unverzerrte Zufallsstichprobe, und mehr braucht das frühe Aufhören nicht.
+
+Die Startseite hat ein anderes Problem. Je nach Gerät zeichnet sie 1.000, 512 oder 256 der Linien, und 256 zufällige können die Extreme verfehlen. Dann wirkt der Fächer auf dem Handy schmaler als am Desktop. Deshalb sortiert der Generator dieser Website, `scripts/gen/zenarios.mjs`, die Szenarien nach ihrem Endvermögen und speichert sie in bitumgekehrter Rangfolge:
+
+```js
+const finals = Array.from({ length: trials.count }, (_, t) => ({ t, v: trials.netWorth[t * years + years - 1] }));
+finals.sort((a, b) => a.v - b.v);
+const bits = Math.ceil(Math.log2(trials.count));
+const order = [];
+for (let k = 0; k < 1 << bits; k++) {
+  let r = 0;
+  for (let b = 0; b < bits; b++) if (k & (1 << b)) r |= 1 << (bits - 1 - b);
+  if (r < trials.count) order.push(r);
+}
+```
+
+Dreht man die Bits von 0, 1, 2, 3 über zehn Stellen um, ergeben sich die Ränge 0, 512, 256, 768; Ränge über 999 fallen weg. Die ersten 256 Einträge sind dann ungefähr jeder vierte Rang über die ganze Spanne, die ersten 512 ungefähr jeder zweite. Jedes Anfangsstück ist eine geschichtete Stichprobe der Streuung, und ein Handy mit 256 Linien zeigt dieselbe Form wie ein Desktop mit allen 1.000.
+
+## Wie schnell es ist
+
+`src/engine/__tests__/performance.test.ts` hält die Kosten eines einzelnen Szenarios im Blick. Bei der letzten Kalibrierung brauchte ein schlanker 40-Jahres-Lauf einer deutschen Familie unter Node auf einem Mac mit M-Chip etwa 5,7 ms, bei einem Budget von 7 ms (CI-Maschinen bekommen Spielraum). Den Lauf dieser Website, 1.000 Szenarien mit je 645 Monaten für den Beispielhaushalt, habe ich auf meinem M5 Pro unter Node 24 gemessen: etwa 4 Sekunden, also rund 4 ms pro Szenario. Auf dem Handy läuft derselbe Code unter Hermes, in Häppchen; das habe ich nicht gemessen, also nenne ich keine Zahl.
+
+## Was bewusst einfach bleibt
+
+Es zieht eine Portfoliorendite pro Jahr, keine einzelnen Anlageklassen. Die Geschichte ist nur die der USA. Im Geschichtsmodus folgen Immobilien der Annahme des Plans, weil der Datensatz keine Hauspreise enthält. Und die Parameter (5 Freiheitsgrade, eine Trägheit von 0,6, die Korrelationen) sind gesetzt, nicht an Daten angepasst. Versioniert sind sie aber: `MARKET_MODEL_VERSION` gehört zur Identität jedes Laufs, neben der Engine-Version, dem Seed und einem Hash des Plans. So sagt jedes Ergebnis, welches Modell es erzeugt hat.
