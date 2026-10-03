@@ -1,0 +1,80 @@
+---
+title: "Zenarios"
+headline: "A household finance planner for iPhone and Mac: a month-by-month forecast, stress tests and taxes, all on the device."
+description: "Zenarios, by Constantin Metz: a financial planning app with a deterministic monthly forecast, up to 1,000 market futures and 38 tax systems, all on the phone."
+role: "Solo · engine, app, design, site, launch film"
+stack: ["TypeScript", "React Native", "Expo", "Jest", "Storybook", "Astro", "Remotion"]
+facts:
+  - { value: "38", label: "countries' income tax" }
+  - { value: "1,000", label: "market futures per run, at most" }
+  - { value: "90.6 %", label: "line coverage of the logic" }
+  - { value: "7", label: "languages" }
+---
+
+## The problem
+
+Most of a household's big money decisions are made with a spreadsheet or a hunch: buy or keep renting, a second child, going part-time, stopping at 60. Budgeting apps look back at what was spent. A spreadsheet can look forward, but it doesn't know German income tax or the statutory pension, nor what a decade like the 1970s does to a plan.
+
+The numbers are also the most private a household has. So the brief I set myself: describe the household once, see its net worth month by month until retirement and beyond, compare decisions, stress-test the plan, and keep all of it on the phone. No account, no ads, no bank logins.
+
+## What I built
+
+Zenarios, solo, from March 2025 to October 2026. I started on Vite and Capacitor, moved to Expo three months in, and have designed and directed it since with an agent workflow. That's one reason the architecture rules live in CI, not in my head: they hold for every change, whoever or whatever wrote it.
+
+- **The engine.** Pure TypeScript that walks a plan month by month: pay, pensions, accounts, loans, taxes, children, and milestones that can wait for a condition ("buy the car once we can afford it").
+- **Stress tests.** Thirteen, from a job loss to a crash in the year you retire, plus up to 1,000 simulated market futures and replays of US market history. Details in [1,000 market futures in a pure-TS engine](/writing/thousand-market-futures/).
+- **Taxes and local data.** Income tax and social contributions for 38 countries, 12 in full detail with regions such as Swiss cantons and US states. Living costs, rents and home prices come from official statistics compiled into the app.
+- **Ask.** A chat tab that answers 54 kinds of question from the plan's own numbers, without a language model.
+- **The app.** Expo and React Native, on iPhone and on Macs with Apple silicon, in seven languages (German in both the informal and the formal register), with PDF reports and CSV and JSON export.
+- **The design system.** "Ledger + green": white paper, black ink, hairline rules, colour only where it means something. One token file, mirrored for charts and kept in step by a test; 79 Storybook files.
+- **The website**, [zenarios.com](https://zenarios.com): static Astro, with the app's screens rebuilt in HTML so they stay sharp and can move.
+- **The launch film**: 30 seconds in Remotion. The soundtrack is synthesised in code from oscillators and noise, and one timeline file holds every cue for picture and sound, so the two can't drift apart.
+
+## The hard parts
+
+### Same input, same bits
+
+Forecasts are cached by a hash of their inputs, scenarios are compared against each other, and the figures on this site come from the same engine running under Node. That only works if the engine is exactly deterministic on every JavaScript engine, yet the spec leaves `Math.exp`, `Math.log` and `Math.pow` approximate, and Hermes on the phone rounds them differently from V8.
+
+So ESLint bans `Math.random`, `exp`, `log`, `pow` and the `**` operator anywhere in `src/engine`. Growth uses integer powers and fixed Newton steps, the market model has its own `exp` and `log`, and randomness comes from a seeded generator per simulated future. Golden summaries of four reference households are snapshot-tested; a change that moves them has to bump `ENGINE_VERSION`, which also retires every cached projection.
+
+The tests carry the rest: 348 test files with over 3,300 cases, 90.6 % line coverage of the logic layers (domain, engine, data and feature logic; the UI components aren't counted) and per-layer coverage gates in CI. Twelve test personas, from a FIRE saver to a couple buying a house near Hannover, run through the real onboarding and engine.
+
+### 38 tax systems, checked against the OECD
+
+Each country's tax lives in its own folder: parameter tables per year and the calculation, behind a shared `computeYear` interface. Writing them is one thing; knowing they're right is another. For every built-in system, a test computes a single worker's income tax and social contributions at 67 %, 100 % and 167 % of the national average wage and compares them with the OECD's Taxing Wages. From `src/engine/__tests__/tax/oecdTaxingWages.test.ts`:
+
+```ts
+const cases = taxSystemCatalog().flatMap((info) =>
+  ([67, 100, 167] as const).map((share) => [info.country, info.tier, share] as const)
+);
+
+it.each(cases)("%s (tier %s) at %s %% of the average wage", (country, tier, share) => {
+  const tolerance =
+    findTaxSystemInfo(country)!.oecdReference?.toleranceBp?.[share] ?? TOLERANCE_BP[tier][share]!;
+  const difference = modelRateBp(country, share) - oecdRateBp(country, share);
+  expect(Math.abs(difference)).toBeLessThanOrEqual(tolerance);
+});
+```
+
+The 12 detailed systems must land within 0.75 points (1.25 at the low wage, where cash benefits matter most), the 26 simpler ones within 1.5 to 2. Where a country needs more room, its catalogue entry says why: Chile and Colombia, for instance, count contributions the OECD leaves out, because they reduce take-home pay.
+
+Those OECD figures come out of the statistics pipeline. One script downloads and filters the sources (Destatis, Eurostat, the OECD, the World Bank, national statistics offices); a second, offline and deterministic, turns them into typed TypeScript tables and asserts what has to be true on the way: Germany has 400 districts, rent in Munich is above rent in Bremen, US stocks lost more than 40 % in 1931. Lint fails when a generated file is stale, and the app lists every source with its licence.
+
+### Ask, without a language model
+
+People should be able to type "can we afford a 30k car?" without the plan going to a server or a model shipping with the app. Ask does it with plain code. Each of the 54 question types has keywords in the interface language plus the longer English ones, because people mix them ("Kann ich mir ein Auto leisten, so 20k?"). A phrase scores three times a word when its words stand together, and a stem like `retire*` matches "retirement". A parser pulls amounts, percentages, ages and durations out of the text in all seven languages. A message that is only a number ("and 40k?") asks the last question again, and a tie is offered as a choice rather than guessed.
+
+The answer comes from applying the change to a copy of the plan and running the engine, sometimes with a short Monte Carlo of its own. Nothing typed leaves the device.
+
+## Status
+
+Zenarios is live and free on the [App Store](https://apps.apple.com/app/zenarios/id6819013653) for iPhone and for Macs with Apple silicon. Plans never leave the device. The app reports anonymous usage statistics (which screens are used, never amounts or names), and those can be switched off.
+
+Not done yet:
+
+- **Android.** The build is configured, but the app isn't in Google Play.
+- **iPad.** No tablet layouts; iPad runs the iPhone app in compatibility mode.
+- **Sync.** Nothing syncs between devices. The data layer has the contracts for it; the backend doesn't exist.
+- **More history.** The engine has a block bootstrap of market history that the app doesn't offer yet.
+- **The design guide.** The Ledger design shipped in October 2026; its written guide still describes the old palette.

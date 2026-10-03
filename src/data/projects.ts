@@ -49,6 +49,24 @@ export interface ProjectDef {
 
 export const PROJECTS = [
   {
+    slug: "zenarios",
+    years: "2025–2026",
+    station: "zenarios",
+    tint: "#34d07f",
+    links: [
+      { kind: "appStore", href: "https://apps.apple.com/app/zenarios/id6819013653" },
+      { kind: "site", href: "https://zenarios.com", label: "zenarios.com" },
+    ],
+    media: [{ src: "/media/zenarios-overview.jpg", width: 480, height: 1020, kind: "phone" }],
+    // Same node as zenarios.com's own structured data (zenarios-web/src/lib/seo.ts).
+    schema: {
+      type: "MobileApplication",
+      id: "https://zenarios.com/#app",
+      category: "FinanceApplication",
+      operatingSystem: "iOS 16.4 or later",
+    },
+  },
+  {
     slug: "paperscores",
     years: "2025–2026",
     station: "paperscores",

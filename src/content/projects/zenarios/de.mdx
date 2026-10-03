@@ -1,0 +1,80 @@
+---
+title: "Zenarios"
+headline: "Finanzplaner für Haushalte, für iPhone und Mac: Prognose Monat für Monat, Stresstests und Steuern, alles auf dem Gerät."
+description: "Zenarios von Constantin Metz: Finanzplanungs-App mit deterministischer Monatsprognose, bis zu 1.000 Marktszenarien und 38 Steuersystemen, alles auf dem Handy."
+role: "Solo · Engine, App, Design, Website, Launchfilm"
+stack: ["TypeScript", "React Native", "Expo", "Jest", "Storybook", "Astro", "Remotion"]
+facts:
+  - { value: "38", label: "Länder mit Steuerberechnung" }
+  - { value: "1.000", label: "Marktszenarien pro Lauf, höchstens" }
+  - { value: "90,6 %", label: "Zeilenabdeckung der Logik" }
+  - { value: "7", label: "Sprachen" }
+---
+
+## Das Problem
+
+Die großen Geldentscheidungen eines Haushalts fallen meist per Tabellenkalkulation oder aus dem Bauch: kaufen oder weiter mieten, ein zweites Kind, Teilzeit, mit 60 aufhören. Budget-Apps schauen zurück auf das, was schon ausgegeben ist. Eine Tabelle kann zwar nach vorn rechnen, kennt aber weder die deutsche Einkommensteuer noch die gesetzliche Rente, und erst recht nicht, was ein Jahrzehnt wie die 1970er mit einem Plan anstellt.
+
+Dazu kommt: Diese Zahlen sind das Privateste, was ein Haushalt hat. Also habe ich mir vorgenommen: den Haushalt einmal beschreiben, sein Vermögen Monat für Monat bis zur Rente und darüber hinaus sehen, Entscheidungen vergleichen, den Plan Stresstests aussetzen, und alles bleibt auf dem Handy. Kein Konto, keine Werbung, kein Bank-Login.
+
+## Was ich gebaut habe
+
+Zenarios, allein, von März 2025 bis Oktober 2026. Angefangen habe ich mit Vite und Capacitor, nach drei Monaten bin ich auf Expo umgestiegen, und seitdem entwerfe und steuere ich die App mit einem Agenten-Workflow. Auch deshalb stehen die Architekturregeln in der CI und nicht in meinem Kopf: Sie gelten für jede Änderung, egal wer oder was sie geschrieben hat.
+
+- **Die Engine.** Reines TypeScript, das einen Plan Monat für Monat durchrechnet: Gehalt, Rente, Konten, Kredite, Steuern, Kinder und Meilensteine, die auf eine Bedingung warten können („das Auto kaufen, sobald wir es uns leisten können“).
+- **Stresstests.** Dreizehn Stück, vom Jobverlust bis zum Crash im Jahr des Renteneintritts, dazu bis zu 1.000 simulierte Marktszenarien und Durchläufe durch die echte US-Börsengeschichte. Details stehen in [1.000 Marktszenarien in einer reinen TypeScript-Engine](/de/texte/tausend-marktszenarien/).
+- **Steuern und lokale Daten.** Einkommensteuer und Sozialabgaben für 38 Länder, 12 davon im Detail, mit Regionen wie Schweizer Kantonen und US-Bundesstaaten. Lebenshaltungskosten, Mieten und Immobilienpreise stammen aus amtlichen Statistiken, die in die App kompiliert sind.
+- **Ask.** Ein Chat-Tab, der 54 Arten von Fragen aus den Zahlen des Plans beantwortet, ohne Sprachmodell.
+- **Die App.** Expo und React Native, auf dem iPhone und auf Macs mit Apple-Chip, in sieben Sprachen (Deutsch wahlweise mit Du oder Sie), mit PDF-Berichten sowie CSV- und JSON-Export.
+- **Das Designsystem.** „Ledger + green“: weißes Papier, schwarze Schrift, Haarlinien, Farbe nur dort, wo sie etwas bedeutet. Eine Token-Datei, für Diagramme gespiegelt und per Test synchron gehalten; dazu 79 Storybook-Dateien.
+- **Die Website** [zenarios.com](https://zenarios.com): statisches Astro, die Screens der App in HTML nachgebaut, damit sie scharf bleiben und sich bewegen können.
+- **Der Launchfilm**: 30 Sekunden in Remotion. Den Soundtrack erzeugt Code aus Oszillatoren und Rauschen, und eine einzige Timeline-Datei hält jeden Cue für Bild und Ton, sodass beide nicht auseinanderlaufen können.
+
+## Die schwierigen Teile
+
+### Gleiche Eingabe, gleiche Bits
+
+Prognosen werden über einen Hash ihrer Eingaben gecacht, Szenarien gegeneinander verglichen, und die Zahlen auf dieser Website stammen aus derselben Engine, nur unter Node. Das klappt nur, wenn die Engine auf jeder JavaScript-Engine exakt dasselbe rechnet. Die Spezifikation verlangt von `Math.exp`, `Math.log` und `Math.pow` aber nur Näherungen, und Hermes auf dem Handy rundet anders als V8.
+
+Deshalb verbietet ESLint in `src/engine` `Math.random`, `exp`, `log`, `pow` und den `**`-Operator. Wachstum läuft über ganzzahlige Potenzen und eine feste Zahl von Newton-Schritten, das Marktmodell bringt eigene `exp`- und `log`-Funktionen mit, und der Zufall kommt aus einem eigenen, geseedeten Generator für jedes simulierte Marktszenario. Goldene Zusammenfassungen von vier Referenzhaushalten stecken in Snapshot-Tests; wer sie verschiebt, muss `ENGINE_VERSION` erhöhen, und das verwirft zugleich jede gecachte Prognose.
+
+Den Rest tragen die Tests: 348 Testdateien mit über 3.300 Fällen, 90,6 % Zeilenabdeckung der Logikschichten (Domain, Engine, Daten und Feature-Logik; die UI-Komponenten zählen nicht mit) und Abdeckungsschwellen pro Schicht in der CI. Zwölf Test-Personas, vom FIRE-Sparer bis zum Paar, das bei Hannover ein Haus kauft, laufen durch das echte Onboarding und die Engine.
+
+### 38 Steuersysteme, geprüft gegen die OECD
+
+Die Steuer jedes Landes liegt in einem eigenen Ordner: Parametertabellen pro Jahr und die Berechnung dahinter, mit einer gemeinsamen Schnittstelle `computeYear`. Sie zu schreiben ist das eine, zu wissen, dass sie stimmen, das andere. Für jedes eingebaute System rechnet ein Test Einkommensteuer und Sozialabgaben eines alleinstehenden Arbeitnehmers bei 67 %, 100 % und 167 % des nationalen Durchschnittslohns aus und vergleicht sie mit den „Taxing Wages“ der OECD. Aus `src/engine/__tests__/tax/oecdTaxingWages.test.ts`:
+
+```ts
+const cases = taxSystemCatalog().flatMap((info) =>
+  ([67, 100, 167] as const).map((share) => [info.country, info.tier, share] as const)
+);
+
+it.each(cases)("%s (tier %s) at %s %% of the average wage", (country, tier, share) => {
+  const tolerance =
+    findTaxSystemInfo(country)!.oecdReference?.toleranceBp?.[share] ?? TOLERANCE_BP[tier][share]!;
+  const difference = modelRateBp(country, share) - oecdRateBp(country, share);
+  expect(Math.abs(difference)).toBeLessThanOrEqual(tolerance);
+});
+```
+
+Die 12 detaillierten Systeme müssen auf 0,75 Prozentpunkte genau treffen (beim niedrigen Lohn auf 1,25, weil dort Transferleistungen am meisten ausmachen), die 26 einfacheren auf 1,5 bis 2. Braucht ein Land mehr Spielraum, steht im Katalogeintrag, warum: Chile und Kolumbien etwa rechnen Beiträge mit, die die OECD weglässt, weil sie das Nettoeinkommen schmälern.
+
+Die OECD-Zahlen selbst kommen aus der Statistik-Pipeline. Ein Skript lädt die Quellen herunter und filtert sie (Destatis, Eurostat, OECD, Weltbank, nationale Statistikämter); ein zweites, offline und deterministisch, macht daraus typisierte TypeScript-Tabellen und prüft unterwegs, was stimmen muss: Deutschland hat 400 Kreise, die Miete in München liegt über der in Bremen, US-Aktien verloren 1931 mehr als 40 %. Der Lint-Lauf schlägt fehl, sobald eine generierte Datei veraltet ist, und die App nennt jede Quelle mit ihrer Lizenz.
+
+### Ask, ohne Sprachmodell
+
+Man soll „Können wir uns ein Auto für 30k leisten?“ eintippen können, ohne dass der Plan auf einem Server landet oder ein Modell mit der App ausgeliefert wird. Ask schafft das mit gewöhnlichem Code. Jeder der 54 Fragetypen hat Schlüsselwörter in der Sprache der Oberfläche plus die längeren englischen, weil viele beides mischen („Kann ich mir ein Auto leisten, so 20k?“). Eine Wortgruppe zählt dreifach, wenn ihre Wörter beieinanderstehen, und ein Wortstamm wie `rente*` findet auch „Rentenalter“. Ein Parser zieht Beträge, Prozente, Alter und Zeiträume aus dem Text, in allen sieben Sprachen. Besteht eine Nachricht nur aus einer Zahl („und 40k?“), stellt Ask die letzte Frage noch einmal, und bei Gleichstand bietet es die Fragen zur Auswahl an, statt zu raten.
+
+Die Antwort entsteht, indem Ask die Änderung auf eine Kopie des Plans anwendet und die Engine rechnen lässt, manchmal mit einer eigenen kurzen Monte-Carlo-Simulation. Nichts, was man eintippt, verlässt das Gerät.
+
+## Stand
+
+Zenarios ist live und kostenlos im [App Store](https://apps.apple.com/app/zenarios/id6819013653), für das iPhone und für Macs mit Apple-Chip. Pläne verlassen das Gerät nie. Die App meldet anonyme Nutzungsstatistiken (welche Screens genutzt werden, nie Beträge oder Namen), und die lassen sich abschalten.
+
+Was noch fehlt:
+
+- **Android.** Der Build ist eingerichtet, aber die App ist noch nicht bei Google Play.
+- **iPad.** Keine Tablet-Layouts; auf dem iPad läuft die iPhone-App im Kompatibilitätsmodus.
+- **Sync.** Zwischen Geräten wird nichts synchronisiert. Die Datenschicht hat die Schnittstellen dafür, ein Backend gibt es nicht.
+- **Mehr Geschichte.** Die Engine kann Marktgeschichte per Block-Bootstrap zu weiteren Szenarien zusammensetzen, die App bietet das noch nicht an.
+- **Der Design-Leitfaden.** Das Ledger-Design kam im Oktober 2026 in die App; der schriftliche Leitfaden beschreibt noch die alte Palette.
