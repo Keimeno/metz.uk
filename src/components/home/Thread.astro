@@ -1,0 +1,1041 @@
+---
+// The thread: the name, then Zenarios, Signals, PaperScores, Origins and History, and the whole
+// spiral at the end. Every word is real HTML. With the thread running (`html.thread-on`) the
+// sections only provide the scroll length and the text sits in fixed layers over the canvas, timed
+// by `src/thread/`. Without it (no JS, reduced motion, Save-Data, no WebGL2, or until it has
+// loaded) the same markup reads as an ordinary document.
+import zen from "../../generated/zenarios.json";
+import scorecard from "../../../data/sources/paperscores/scorecard.json";
+import LangSwitch from "../layout/LangSwitch.astro";
+import { HOME } from "../../i18n/home";
+import { INTL_LOCALE, projectPath, route, type Alternates, type Locale } from "../../i18n/routes";
+import { useT } from "../../i18n/ui";
+
+interface Props {
+  locale: Locale;
+  alternates: Alternates;
+}
+
+const { locale, alternates } = Astro.props;
+const c = HOME[locale];
+const t = useT(locale);
+const fmt = new Intl.NumberFormat(INTL_LOCALE[locale]);
+const lasts = Math.round(zen.successRate * zen.trials);
+/** The calendar year an engine milestone falls in. */
+const yearOf = (id: string) => {
+  const [y, m] = zen.startMonth.split("-").map(Number);
+  const index = zen.milestones.find((x) => x.id === id)?.index ?? 0;
+  return y + Math.floor((m - 1 + index) / 12);
+};
+const startYear = Number(zen.startMonth.slice(0, 4));
+const retireYear = yearOf("ms_retirement-self");
+const subscores = (Object.keys(c.ps.subscores) as (keyof typeof c.ps.subscores)[]).map((k) => ({
+  label: c.ps.subscores[k],
+  value: scorecard.subscores[k],
+}));
+
+const chapters = (["zenarios", "paperscores", "origins", "history"] as const).map((id) => ({
+  id,
+  label: c.chapters[id],
+}));
+const historyIds = ["his.early", "his.2018", "his.2020", "his.2021", "his.2023", "his.2026"];
+const appStore = "https://apps.apple.com/app/zenarios/id6819013653";
+---
+
+<header class="site-head">
+  <a class="mark" href="#main" data-dock>Constantin Metz</a>
+  <nav class="chapters" aria-label={t("nav.chapters")}>
+    <ol>
+      {
+        chapters.map((ch, i) => (
+          <li>
+            <a href={`#${ch.id}`} data-chapter={ch.id}>
+              <span class="num">{String(i + 1).padStart(2, "0")}</span>
+              {ch.label}
+            </a>
+          </li>
+        ))
+      }
+    </ol>
+  </nav>
+  <LangSwitch locale={locale} alternates={alternates} class="head-lang" />
+</header>
+<div class="progress" data-progress aria-hidden="true"><span></span></div>
+
+<div class="thread-page">
+  <section class="station station--intro" data-station="intro" style="--beats:1">
+    <div class="station__layer">
+      <header class="intro">
+        <p class="intro__kicker mono" data-cue="intro.lede">{c.intro.kicker}</p>
+        <h1 class="intro__name" data-name>Constantin Metz</h1>
+        <p class="intro__lede" data-cue="intro.lede">{c.intro.lede}</p>
+      </header>
+      <p class="hint mono" data-cue="intro.hint" aria-hidden="true"><span>{c.intro.hint}</span></p>
+    </div>
+  </section>
+
+  <section class="station" id="zenarios" data-station="zenarios" style="--beats:3.8" aria-labelledby="st-zenarios">
+    <div class="station__layer">
+      <article class="panel" data-cue="zen.title">
+        <p class="kicker mono" data-scramble>01 · Zenarios</p>
+        <h2 id="st-zenarios" data-words>{c.zen.h2}</h2>
+        <p class="body">{c.zen.body}</p>
+      </article>
+      <article class="panel" data-cue="zen.fan">
+        <p class="kicker mono">
+          <span data-count="zen.burst" data-count-to={zen.trials}>{fmt.format(zen.trials)}</span>{" "}
+          {c.zen.fanKicker}
+        </p>
+        <h2 data-words>{c.zen.fanH2}</h2>
+        <p class="body">{c.zen.fanBody(fmt.format(lasts), fmt.format(zen.trials))}</p>
+        <p class="note mono">{c.zen.fanNote(zen.provenance.engineVersion)}</p>
+      </article>
+      <article class="panel" data-cue="zen.app">
+        <p class="kicker mono" data-scramble>{c.zen.appKicker}</p>
+        <h2 data-words>{c.zen.appH2}</h2>
+        <p class="body">{c.zen.appBody}</p>
+        <p class="links">
+          <a class="cta" href={appStore} rel="noopener">{c.zen.appCta} <span aria-hidden="true">↗</span></a>
+          <a class="cta cta--quiet" href={projectPath("zenarios", locale)}>{c.caseStudy} <span aria-hidden="true">→</span></a>
+        </p>
+      </article>
+
+      <figure class="plane plane--phone exhibit" data-plane="zen.phone" data-cue="zen.phone">
+        <img
+          src="/media/zenarios-overview.jpg"
+          width="480"
+          height="1020"
+          alt={c.zen.phoneAlt}
+          loading="lazy"
+          decoding="async"
+        />
+      </figure>
+
+      <ol class="labels" aria-hidden="true">
+        <li class="label label--start" data-anchor="zen.today" data-cue="zen.today">{c.zen.today(startYear)}</li>
+        <li class="label label--milestone label--above label--wide" data-anchor="zen.studies" data-cue="zen.studies">
+          {c.zen.studies}
+        </li>
+        <li class="label" data-anchor="zen.retire" data-cue="zen.retire">{c.zen.retire(retireYear)}</li>
+        <li class="label" data-anchor="zen.p90" data-cue="zen.p90">{c.zen.p90}</li>
+        <li class="label" data-anchor="zen.p10" data-cue="zen.p10">{c.zen.p10}</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="station" id="paperscores" data-station="paperscores" style="--beats:2.6" aria-labelledby="st-ps">
+    <div class="station__layer">
+      <article class="panel" data-cue="ps.title">
+        <p class="kicker mono" data-scramble>03 · PaperScores</p>
+        <h2 id="st-ps" data-words>{c.ps.h2}</h2>
+        <p class="body">{c.ps.body}</p>
+        <ul class="subscores mono">
+          {
+            subscores.map((s) => (
+              <li>
+                <span>{s.label}</span>
+                <span>{s.value}</span>
+              </li>
+            ))
+          }
+        </ul>
+        <p class="note mono">{c.ps.note}</p>
+        <p class="links">
+          <a class="cta cta--quiet" href={projectPath("paperscores", locale)}>{c.caseStudy} <span aria-hidden="true">→</span></a>
+        </p>
+      </article>
+      <ol class="labels" aria-hidden="true">
+        {
+          c.ps.cited.map((label, i) => (
+            <li class="label label--wide" data-anchor={`ps.f${i + 1}`} data-cue={`ps.f${i + 1}`}>
+              {label} · {c.ps.pages(scorecard.evidence[i])}
+            </li>
+          ))
+        }
+      </ol>
+      <p class="score exhibit" data-anchor="ps.score" data-cue="ps.score" data-fixed-side="1">
+        <span class="visually-hidden">{c.ps.scoreLabel}: </span>
+        <span data-count="ps.score" data-count-to={scorecard.overall}>{scorecard.overall}</span>
+        <span class="score__of mono">/ 100</span>
+      </p>
+    </div>
+  </section>
+
+  <section class="station" id="origins" data-station="origins" style="--beats:3" aria-labelledby="st-origins">
+    <div class="station__layer">
+      <article class="panel" data-cue="org.mc">
+        <p class="kicker mono" data-scramble>04 · {c.chapters.origins}</p>
+        <h2 id="st-origins" data-words>{c.org.h2}</h2>
+        <p class="body">{c.org.body}</p>
+      </article>
+      <article class="panel" data-cue="org.oidc">
+        <p class="kicker mono" data-scramble>OpenID Connect</p>
+        <h2 data-words>{c.org.oidcH2}</h2>
+        <p class="body">{c.org.oidcBody}</p>
+      </article>
+      <article class="panel" data-cue="org.oss">
+        <p class="kicker mono" data-scramble>{c.org.ossKicker}</p>
+        <h2 data-words>{c.org.ossH2}</h2>
+        <p class="body">{c.org.ossBody}</p>
+        <p class="links">
+          <a class="cta cta--quiet" href={projectPath("origins", locale)}>{c.caseStudy} <span aria-hidden="true">→</span></a>
+        </p>
+      </article>
+      <figure class="doc-figure exhibit" aria-hidden="true">
+        <p class="eyebrow">OpenID Connect</p>
+        <ol class="flow">
+          <li>{c.org.forum}</li>
+          <li class="flow__hub">{c.org.auth}</li>
+          <li>{c.org.game}</li>
+        </ol>
+        <p class="flow__token">id_token · RS256</p>
+        <p class="eyebrow flow__gap">Sequelize</p>
+        <p class="flow__pr"><span>sequelize/main</span><span>{c.org.pr}</span></p>
+      </figure>
+      <ol class="labels" aria-hidden="true">
+        <li class="label label--milestone label--below" data-anchor="org.forum" data-cue="org.forum">{c.org.forum}</li>
+        <li class="label label--milestone label--below" data-anchor="org.auth" data-cue="org.auth">{c.org.auth}</li>
+        <li class="label label--milestone label--below" data-anchor="org.game" data-cue="org.game">{c.org.game}</li>
+        <li class="label label--token label--wide" data-anchor="pulse.origins" data-cue="org.token">id_token · RS256</li>
+        <li class="label" data-anchor="org.main" data-cue="org.main">sequelize/main</li>
+        <li class="label label--milestone label--above" data-anchor="org.pr" data-cue="org.pr">{c.org.pr}</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="station" id="history" data-station="history" style="--beats:2.2" aria-labelledby="st-history">
+    <div class="station__layer">
+      <article class="panel panel--low" data-cue="his.title">
+        <p class="kicker mono" data-scramble>05 · {c.chapters.history}</p>
+        <h2 id="st-history" data-words>{c.his.h2}</h2>
+        <p class="body">{c.his.body}</p>
+        <p class="links">
+          <a class="cta cta--quiet" href={route("history", locale)}>{c.his.more} <span aria-hidden="true">→</span></a>
+        </p>
+      </article>
+      <ol class="labels labels--steps exhibit" aria-label={c.his.labels}>
+        {
+          c.his.steps.map((s, i) => (
+            <li
+              class={`label label--step ${i % 2 === 0 ? "label--above" : "label--below"}`}
+              data-anchor={historyIds[i]}
+              data-cue={historyIds[i]}
+              data-fixed-side="1"
+            >
+              <strong>{s.year}</strong>
+              <span>{s.text}</span>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </section>
+
+  <section class="station station--end" data-station="end" style="--beats:1.25">
+    <div class="station__layer">
+      <div class="panel panel--end" data-cue="end.next">
+        <p class="kicker mono" data-scramble>{c.end.kicker}</p>
+        <p class="end__title" data-words>{c.end.h2}</p>
+        <p class="links links--center">
+          <a class="cta" href="mailto:constantin@metz.uk">constantin@metz.uk</a>
+          <a class="cta cta--quiet" href={route("work", locale)}>{c.end.work}</a>
+          <a class="cta cta--quiet" href={route("about", locale)}>{c.end.about}</a>
+        </p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<style>
+  /* ── Frame ─────────────────────────────────────────────────────────── */
+  .site-head {
+    position: fixed;
+    inset: 0 0 auto;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: calc(18px + env(safe-area-inset-top)) var(--gutter) 18px;
+    pointer-events: none;
+    transition:
+      opacity 0.4s ease,
+      visibility 0.4s;
+  }
+  .site-head :is(a, nav) {
+    pointer-events: auto;
+  }
+  .mark {
+    margin-right: auto;
+    font-size: 15px;
+    font-weight: 560;
+    letter-spacing: -0.02em;
+    text-decoration: none;
+    will-change: opacity, transform;
+  }
+  :global(.thread-on) .mark {
+    opacity: 0;
+  }
+  /* Once the page below the thread slides up under it, the header steps aside. */
+  :global(.thread-past) .site-head {
+    opacity: 0;
+    visibility: hidden;
+  }
+  .chapters ol {
+    display: flex;
+    gap: 22px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .chapters :is(a, span[data-chapter]) {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 7px;
+    color: var(--muted);
+    font-size: 13px;
+    letter-spacing: -0.005em;
+    text-decoration: none;
+    transition: color 0.4s ease;
+  }
+  .chapters a:hover,
+  .chapters [aria-current] {
+    color: var(--text);
+  }
+  .chapters .num {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+  }
+  .chapters [aria-current] .num {
+    color: var(--zen);
+  }
+  .site-head :global(.head-lang) {
+    margin-left: 10px;
+    padding: 4px 0 4px 18px;
+    border-left: 1px solid var(--hair);
+  }
+
+  .progress {
+    position: fixed;
+    inset: 0 0 auto;
+    z-index: 11;
+    height: 1px;
+    background: var(--hair);
+    pointer-events: none;
+  }
+  .progress span {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, rgba(237, 235, 230, 0.2), var(--text));
+    transform-origin: 0 50%;
+    transform: scaleX(var(--p, 0));
+    box-shadow: 0 0 10px rgba(237, 235, 230, 0.6);
+  }
+
+  /* ── Stations ──────────────────────────────────────────────────────── */
+  .thread-page {
+    position: relative;
+    z-index: 1;
+  }
+  .station {
+    position: relative;
+    height: calc(var(--beats) * 100svh);
+  }
+  .station__layer {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    height: 100lvh;
+    overflow: hidden;
+  }
+  /* With the thread running, every station's text sits in one fixed layer over the canvas and
+     the timeline decides what shows; the sections only provide the scroll length. */
+  :global(.thread-on) .station__layer {
+    position: fixed;
+    inset: 0 0 auto;
+    pointer-events: none;
+  }
+  :global(.thread-on) .station__layer :is(a, button) {
+    pointer-events: auto;
+  }
+
+  /* Intro: the name, centred. The thread writes over it and it fades into light. */
+  .intro {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    padding: 0 var(--gutter);
+    text-align: center;
+  }
+  .intro__kicker {
+    margin: 0 0 26px;
+  }
+  .intro__name {
+    margin: 0;
+    font-size: clamp(44px, 9.2vw, 156px);
+    font-weight: 500;
+    letter-spacing: -0.045em;
+    line-height: 0.95;
+    white-space: nowrap;
+  }
+  .intro__lede {
+    max-width: 34ch;
+    margin: 30px 0 0;
+    color: var(--text-2);
+    font-size: clamp(17px, 1.35vw, 20px);
+    line-height: 1.5;
+    text-wrap: balance;
+  }
+  :global(.thread-on) .intro :is(.intro__kicker, .intro__lede) {
+    opacity: var(--v, 1);
+    transform: translate3d(0, calc((1 - var(--v, 1)) * -14px), 0);
+  }
+  .hint {
+    position: absolute;
+    left: 50%;
+    bottom: calc(30px + env(safe-area-inset-bottom) + (100lvh - 100dvh));
+    display: grid;
+    justify-items: center;
+    gap: 12px;
+    margin: 0;
+    translate: -50% 0;
+    font-size: 10px;
+    opacity: var(--v, 1);
+  }
+  .hint::after {
+    content: "";
+    width: 1px;
+    height: 34px;
+    background: linear-gradient(var(--text), transparent);
+    transform-origin: top;
+    animation: hint 2.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  }
+  @keyframes hint {
+    0% {
+      transform: scaleY(0);
+      opacity: 1;
+    }
+    60% {
+      transform: scaleY(1);
+      opacity: 1;
+    }
+    100% {
+      transform: scaleY(1);
+      opacity: 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hint::after {
+      animation: none;
+    }
+  }
+
+  /* ── Panels ────────────────────────────────────────────────────────── */
+  .panel {
+    max-width: 460px;
+    margin: 0 var(--gutter);
+  }
+  :global(.thread-on) .panel {
+    --v: 0;
+    position: absolute;
+    top: 50%;
+    right: var(--gutter);
+    width: min(440px, 33vw);
+    margin: 0;
+    translate: 0 -50%;
+  }
+  .kicker {
+    margin: 0;
+    color: var(--text-2);
+  }
+  .panel h2,
+  .end__title {
+    margin: 14px 0 18px;
+    font-size: clamp(26px, 2.5vw, 42px);
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    line-height: 1.06;
+    text-wrap: balance;
+  }
+  .body {
+    margin: 0;
+    color: var(--text-2);
+    font-size: 17px;
+    line-height: 1.55;
+    text-wrap: pretty;
+  }
+  .note {
+    margin: 16px 0 0;
+    font-size: 10px;
+    line-height: 1.6;
+  }
+  .links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 22px;
+    margin: 26px 0 0;
+  }
+  .cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 11px 16px;
+    border: 1px solid rgba(237, 235, 230, 0.22);
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    transition:
+      background 0.3s ease,
+      border-color 0.3s ease;
+  }
+  .cta:hover {
+    background: rgba(237, 235, 230, 0.08);
+    border-color: rgba(237, 235, 230, 0.4);
+  }
+  .cta--quiet {
+    padding-inline: 0;
+    border-color: transparent;
+    color: var(--text-2);
+  }
+  .cta--quiet:hover {
+    background: none;
+    border-color: transparent;
+    color: var(--text);
+  }
+
+  /* Scroll-linked reveals: one --v per panel; the words stagger themselves. */
+  :global(.thread-on) .panel .kicker {
+    opacity: clamp(0, calc(var(--v) * 2.5 - 0.2), 1);
+  }
+  :global(.thread-on) .panel [data-words] :global(.w) {
+    display: inline-block;
+    overflow: hidden;
+    vertical-align: top;
+    padding: 0.08em 0 0.14em;
+    margin: -0.08em 0 -0.14em;
+  }
+  :global(.thread-on) .panel [data-words] :global(.w > span) {
+    --k: clamp(0, calc(var(--v) * 2.6 - var(--i) * 0.085), 1);
+    display: inline-block;
+    transform: translate3d(0, calc((1 - var(--k)) * 112%), 0);
+    opacity: calc(0.2 + var(--k) * 0.8);
+  }
+  :global(.thread-on) .panel :is(.body, .links, .note) {
+    opacity: clamp(0, calc(var(--v) * 2.2 - 0.9), 1);
+    transform: translate3d(0, calc((1 - var(--v)) * 16px), 0);
+  }
+  :global(.thread-on) .panel--end {
+    top: auto;
+    bottom: 16vh;
+    right: 50%;
+    width: min(680px, 88vw);
+    translate: 50% 0;
+    text-align: center;
+  }
+
+  /* ── The app, mapped into the scene ────────────────────────────────── */
+  .plane {
+    margin: 40px var(--gutter);
+  }
+  .plane img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .plane--phone {
+    width: 240px;
+  }
+  :global(.thread-on) .plane {
+    --v: 0;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 480px;
+    margin: 0;
+    transform-origin: 0 0;
+    opacity: var(--v);
+    will-change: transform, opacity;
+  }
+  .plane--phone img {
+    border-radius: 13.5% / 6.4%;
+    box-shadow:
+      0 0 0 1px rgba(237, 235, 230, 0.08),
+      0 40px 120px -20px rgba(52, 208, 127, 0.35);
+  }
+
+  /* ── Labels on the figures ─────────────────────────────────────────── */
+  .labels {
+    list-style: none;
+    margin: 0;
+    padding: 0 var(--gutter);
+  }
+  .label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    color: var(--text-2);
+    white-space: nowrap;
+    /* A soft halo of ink keeps labels legible over bright light. */
+    text-shadow:
+      0 0 2px var(--ink),
+      0 0 6px var(--ink),
+      0 0 14px rgba(11, 11, 12, 0.9);
+  }
+  :global(.thread-on) .label {
+    position: absolute;
+    top: 0;
+    left: 0;
+    translate: 12px -50%;
+    padding-left: 10px;
+    opacity: 0;
+    will-change: transform, opacity;
+  }
+  :global(.thread-on) .label::before {
+    content: "";
+    position: absolute;
+    left: -14px;
+    top: 50%;
+    width: 7px;
+    height: 7px;
+    margin-top: -3.5px;
+    border-radius: 50%;
+    background: var(--text);
+    box-shadow: 0 0 12px rgba(237, 235, 230, 0.8);
+  }
+  :global(.thread-on) .label:global(.label--left) {
+    translate: calc(-100% - 12px) -50%;
+    padding: 0 10px 0 0;
+  }
+  :global(.thread-on) .label:global(.label--left)::before {
+    left: auto;
+    right: -14px;
+  }
+
+  /* "Today": above its dot, starting at it, clear of the first milestone below the line. */
+  :global(.thread-on) .label.label--start {
+    translate: -4px calc(-100% - 16px);
+    padding: 0;
+  }
+  :global(.thread-on) .label.label--start::before {
+    left: 0.5px;
+    top: calc(100% + 16px);
+  }
+
+  /* Life events on the forecast: a small dot on the line, the word above or below it. */
+  :global(.thread-on) .label.label--milestone {
+    padding: 0;
+    color: var(--muted);
+    font-size: 10px;
+  }
+  :global(.thread-on) .label.label--milestone::before {
+    left: 50%;
+    width: 5px;
+    height: 5px;
+    margin: -2.5px 0 0 -2.5px;
+    background: var(--text-2);
+    box-shadow: 0 0 8px rgba(237, 235, 230, 0.6);
+  }
+  :global(.thread-on) .label.label--below {
+    translate: -50% 12px;
+  }
+  :global(.thread-on) .label.label--below::before {
+    top: -12px;
+  }
+  :global(.thread-on) .label.label--above {
+    translate: -50% calc(-100% - 12px);
+  }
+  :global(.thread-on) .label.label--above::before {
+    top: calc(100% + 12px);
+  }
+
+  /* ── Station extras ────────────────────────────────────────────────── */
+  .label--node {
+    color: var(--text);
+  }
+  :global(.thread-on) .label.label--token {
+    color: #b9a9ff;
+    translate: 14px calc(-100% - 6px);
+  }
+  :global(.thread-on) .label.label--token::before {
+    top: calc(100% + 2px);
+    background: #b9a9ff;
+    box-shadow: 0 0 12px rgba(185, 169, 255, 0.9);
+  }
+  .caption {
+    margin: 0;
+    text-align: center;
+  }
+  :global(.thread-on) .caption {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    width: max-content;
+    max-width: 88vw;
+    translate: -50% -100%;
+    opacity: 0;
+  }
+  .caption__line {
+    color: var(--text-2);
+    font-size: clamp(15px, 1.3vw, 19px);
+  }
+  .caption__line--main {
+    color: var(--text);
+    font-size: clamp(22px, 2.2vw, 34px);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+  :global(.thread-on) .caption [data-words] :global(.w) {
+    display: inline-block;
+  }
+  :global(.thread-on) .caption [data-words] :global(.w > span) {
+    --k: clamp(0, calc(var(--v) * 3 - var(--i) * 0.3), 1);
+    display: inline-block;
+    opacity: var(--k);
+    filter: blur(calc((1 - var(--k)) * 6px));
+  }
+  .score {
+    margin: 0;
+    font-size: 15px;
+  }
+  :global(.thread-on) .score {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: grid;
+    justify-items: center;
+    translate: -50% -50%;
+    opacity: 0;
+    font-size: clamp(44px, 4.4vw, 72px);
+    font-weight: 300;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .score__of {
+    font-size: 11px;
+    letter-spacing: 0.04em;
+  }
+  .subscores {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 22px;
+    margin: 18px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 11px;
+  }
+  .subscores li {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    border-bottom: 1px solid var(--hair);
+    padding-bottom: 5px;
+  }
+  .subscores li span:last-child {
+    color: var(--text);
+  }
+  :global(.thread-on) .panel .subscores {
+    opacity: clamp(0, calc(var(--v) * 2.2 - 1), 1);
+  }
+  .label--step {
+    display: grid;
+    gap: 3px;
+    max-width: 220px;
+    white-space: normal;
+    text-align: center;
+  }
+  .label--step strong {
+    color: var(--text);
+    font-weight: 500;
+  }
+  :global(.thread-on) .label.label--step {
+    padding: 0;
+  }
+  :global(.thread-on) .label.label--step.label--above {
+    translate: -50% calc(-100% - 14px);
+  }
+  :global(.thread-on) .label.label--step.label--below {
+    translate: -50% 14px;
+  }
+  :global(.thread-on) .label.label--step::before {
+    display: none;
+  }
+  :global(.thread-on) .panel.panel--low {
+    top: auto;
+    bottom: 12vh;
+    translate: none;
+  }
+  .links--center {
+    justify-content: center;
+  }
+
+  /* ── Without the thread: an ordinary document ──────────────────────── */
+  /* The intro looks exactly as it does when the thread runs (so nothing moves when it starts);
+     every other station becomes a spread: the text on the left, its exhibit on the right. */
+  :global(html:not(.thread-on)) .site-head {
+    position: absolute;
+  }
+  :global(html:not(.thread-on)) .mark {
+    visibility: hidden;
+  }
+  :global(html:not(.thread-on)) .progress {
+    display: none;
+  }
+  :global(html:not(.thread-on)) .station {
+    height: auto;
+  }
+  :global(html:not(.thread-on)) .station--intro .station__layer {
+    position: relative;
+  }
+  :global(html:not(.thread-on)) .station:not(.station--intro) .station__layer {
+    position: static;
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    grid-auto-flow: dense;
+    align-items: start;
+    gap: clamp(48px, 7vh, 72px) var(--gutter);
+    height: auto;
+    max-width: var(--page-max);
+    margin: 0 auto;
+    padding: clamp(96px, 16vh, 180px) var(--gutter) 0;
+    overflow: visible;
+  }
+  :global(html:not(.thread-on)) .panel {
+    grid-column: 1;
+    max-width: 620px;
+    margin: 0;
+  }
+  :global(html:not(.thread-on)) .panel:first-child h2 {
+    font-size: clamp(32px, 3.6vw, 54px);
+    letter-spacing: -0.035em;
+  }
+  :global(html:not(.thread-on)) .panel + .panel {
+    padding-top: clamp(40px, 6vh, 64px);
+    border-top: 1px solid var(--hair);
+  }
+  :global(html:not(.thread-on)) .exhibit {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    justify-self: center;
+    position: sticky;
+    top: 12vh;
+    margin: 0;
+  }
+  :global(html:not(.thread-on)) .labels {
+    display: none;
+  }
+  :global(html:not(.thread-on)) .plane--phone {
+    width: min(280px, 100%);
+  }
+  :global(html:not(.thread-on)) .caption {
+    display: grid;
+    gap: 10px;
+    padding: 28px 30px;
+    border: 1px solid var(--hair);
+    border-radius: 18px;
+    background: var(--ink-2);
+    text-align: left;
+    justify-self: stretch;
+  }
+  /* The caption belongs to LiveTranslate, the third panel. */
+  :global(html:not(.thread-on)) .caption.exhibit {
+    grid-row: 3;
+    align-self: center;
+    position: static;
+  }
+  :global(html:not(.thread-on)) .score {
+    display: grid;
+    justify-items: center;
+    font-size: clamp(88px, 10vw, 150px);
+    font-weight: 300;
+    letter-spacing: -0.05em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: #73d9fa;
+  }
+  :global(html:not(.thread-on)) .score__of {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  /* Small figures that only the document version shows (the thread draws these itself). */
+  .doc-figure {
+    display: none;
+  }
+  :global(html:not(.thread-on)) .doc-figure {
+    display: grid;
+    gap: 18px;
+    justify-self: stretch;
+    padding: 28px 30px;
+    border: 1px solid var(--hair);
+    border-radius: 18px;
+    background: var(--ink-2);
+  }
+  :global(html:not(.thread-on)) .exhibit--top {
+    grid-row: 1 / span 2;
+  }
+  .doc-figure p {
+    margin: 0;
+  }
+  .spread,
+  .flow {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-family: var(--font-mono);
+    font-size: 13px;
+  }
+  .spread li {
+    display: grid;
+    grid-template-columns: 4.5em minmax(0, 1fr);
+    align-items: baseline;
+    padding-left: calc(var(--level) * 22px);
+    color: var(--text-2);
+  }
+  .spread li:first-child .spread__name {
+    color: #ffbd52;
+  }
+  .spread__level {
+    color: var(--muted);
+    font-size: 11px;
+  }
+  .flow {
+    grid-template-columns: repeat(3, auto);
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    color: var(--text-2);
+  }
+  .flow::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #b9a9ff 20%, #b9a9ff 80%, transparent);
+    opacity: 0.6;
+  }
+  .flow li {
+    position: relative;
+    padding: 6px 10px;
+    border: 1px solid var(--hair);
+    border-radius: 999px;
+    background: var(--ink-2);
+  }
+  .flow .flow__hub {
+    border-color: rgba(185, 169, 255, 0.5);
+    color: var(--text);
+  }
+  .flow__token {
+    color: #b9a9ff;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    text-align: center;
+  }
+  .flow__gap {
+    margin-top: 10px !important;
+  }
+  .flow__pr {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 6px 16px;
+    color: var(--text-2);
+    font-family: var(--font-mono);
+    font-size: 13px;
+  }
+
+  /* The history steps, as a timeline. */
+  :global(html:not(.thread-on)) .labels--steps {
+    display: grid;
+    gap: 0;
+    justify-self: stretch;
+    padding: 0;
+  }
+  :global(html:not(.thread-on)) .label--step {
+    display: grid;
+    grid-template-columns: 5.5em minmax(0, 1fr);
+    gap: 16px;
+    max-width: none;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--hair);
+    text-align: left;
+    text-shadow: none;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  :global(html:not(.thread-on)) .station.station--end:not(.station--intro) .station__layer {
+    display: block;
+    padding-bottom: clamp(96px, 16vh, 180px);
+  }
+  :global(html:not(.thread-on)) .panel--end {
+    max-width: 680px;
+    margin: 0 auto;
+    text-align: center;
+  }
+
+  /* ── Phones ────────────────────────────────────────────────────────── */
+  @media (max-width: 760px), (max-aspect-ratio: 1/1) {
+    .chapters,
+    .label--wide,
+    .label--step span,
+    .subscores {
+      display: none;
+    }
+    :global(.thread-on) .panel {
+      top: auto;
+      bottom: calc(26px + env(safe-area-inset-bottom) + (100lvh - 100dvh));
+      left: var(--gutter);
+      right: var(--gutter);
+      width: auto;
+      translate: none;
+    }
+    .panel h2,
+    .end__title {
+      font-size: clamp(23px, 6.4vw, 30px);
+      margin: 12px 0 12px;
+    }
+    .body {
+      font-size: 15px;
+    }
+    .links {
+      margin-top: 18px;
+    }
+    .site-head :global(.head-lang) {
+      margin-left: 0;
+      padding-left: 0;
+      border-left: 0;
+    }
+    /* Without the thread, phones read one column, exhibits after the text. */
+    :global(html:not(.thread-on)) .station:not(.station--intro) .station__layer {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    :global(html:not(.thread-on)) .exhibit {
+      grid-column: 1;
+      grid-row: auto;
+      position: static;
+    }
+    :global(html:not(.thread-on)) .subscores,
+    :global(html:not(.thread-on)) .label--step span {
+      display: revert;
+    }
+    :global(html:not(.thread-on)) .subscores {
+      display: grid;
+    }
+    :global(html:not(.thread-on)) .panel:first-child h2 {
+      font-size: clamp(28px, 8vw, 38px);
+    }
+    :global(html:not(.thread-on)) .body {
+      font-size: 16px;
+    }
+  }
+</style>

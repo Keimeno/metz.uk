@@ -1,0 +1,254 @@
+---
+// Below the thread: the smaller projects and the writing. Plain document, no animation.
+import { getPosts, getProjects, readingMinutes } from "../../lib/content";
+import { postPath, projectPath, route, type Locale } from "../../i18n/routes";
+import { useT } from "../../i18n/ui";
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = useT(locale);
+const projects = (await getProjects()).filter((p) => !p.def.station);
+const posts = await getPosts();
+---
+
+<section class="after-block" aria-labelledby="more-title">
+  <div class="after-block__head">
+    <h2 id="more-title">{t("home.more")}</h2>
+    <p>{t("home.moreLede")}</p>
+  </div>
+  <ul class="index">
+    {
+      projects.map((p) => {
+        const entry = p[locale];
+        const live = p.def.links.find((l) => l.kind === "live" || l.kind === "docs" || l.kind === "site");
+        return (
+          <li class="index__item" style={`--tint:${p.def.tint}`}>
+            <a class="index__link" href={projectPath(p.def.slug, locale)}>
+              <span class="index__title">{entry.data.title}</span>
+            </a>
+            <p class="index__line">{entry.data.headline}</p>
+            <p class="index__meta">
+              <span>{p.def.years}</span>
+              <span>{entry.data.stack.slice(0, 3).join(" · ")}</span>
+            </p>
+            {live && (
+              <a class="index__ext" href={live.href} rel="noopener">
+                {live.label ?? live.href.replace(/^https?:\/\//, "").replace(/\/$/, "")} <span aria-hidden="true">↗</span>
+              </a>
+            )}
+          </li>
+        );
+      })
+    }
+  </ul>
+  <p class="after-block__more"><a class="more" href={route("work", locale)}>{t("work.all")}</a></p>
+</section>
+
+<section class="after-block" aria-labelledby="writing-title">
+  <div class="after-block__head">
+    <h2 id="writing-title">{t("home.writing")}</h2>
+    <p>{t("home.writingLede")}</p>
+  </div>
+  <ul class="posts">
+    {
+      posts.map((post) => {
+        const entry = post[locale];
+        return (
+          <li class="posts__item">
+            <a class="posts__link" href={postPath(entry.data.slug, locale)}>
+              <span class="posts__title">{entry.data.title}</span>
+            </a>
+            <p class="posts__desc">{entry.data.description}</p>
+            <p class="posts__meta">
+              {entry.data.draft && <span class="badge">{t("writing.draft")}</span>}
+              <span>
+                {readingMinutes(entry.body)} {t("writing.minutes")}
+              </span>
+            </p>
+          </li>
+        );
+      })
+    }
+  </ul>
+  <p class="after-block__more"><a class="more" href={route("writing", locale)}>{t("writing.all")}</a></p>
+</section>
+
+<style>
+  .after-block {
+    max-width: var(--page-max);
+    margin: 0 auto;
+    padding: clamp(88px, 14vh, 160px) var(--gutter) 0;
+  }
+  .after-block__head {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    align-items: end;
+    gap: 12px var(--gutter);
+    margin-bottom: clamp(32px, 5vh, 56px);
+  }
+  .after-block__head h2 {
+    margin: 0;
+    font-size: clamp(32px, 3.6vw, 54px);
+    font-weight: 500;
+    letter-spacing: -0.035em;
+    line-height: 1.02;
+  }
+  .after-block__head p {
+    margin: 0;
+    color: var(--muted);
+  }
+  .after-block__more {
+    margin: 28px 0 0;
+  }
+
+  /* Projects: rows with a hairline, the whole row is the link to the case study. */
+  .index,
+  .posts {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--hair);
+  }
+  .index__item {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 3.4fr) minmax(0, 5fr) minmax(0, 2.4fr) minmax(0, 1.6fr);
+    align-items: baseline;
+    gap: 8px var(--gutter);
+    padding: 26px 0;
+    border-bottom: 1px solid var(--hair);
+  }
+  .index__item::before {
+    content: "";
+    position: absolute;
+    inset: 0 calc(var(--gutter) * -0.5);
+    border-radius: 14px;
+    background: radial-gradient(120% 140% at 0% 50%, color-mix(in srgb, var(--tint) 9%, transparent), transparent 60%);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+  }
+  .index__item:hover::before,
+  .index__item:focus-within::before {
+    opacity: 1;
+  }
+  .index__link {
+    text-decoration: none;
+  }
+  /* The title's link covers the row. */
+  .index__link::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+  }
+  .index__title {
+    display: inline-flex;
+    align-items: baseline;
+    line-height: 1.15;
+    font-size: clamp(22px, 2vw, 28px);
+    font-weight: 500;
+    letter-spacing: -0.025em;
+  }
+  .index__title::before {
+    content: "";
+    flex: none;
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin: 0 14px 0.18em 0;
+    border-radius: 50%;
+    background: var(--tint);
+    box-shadow: 0 0 14px var(--tint);
+    vertical-align: middle;
+  }
+  .index__line,
+  .posts__desc {
+    margin: 0;
+    color: var(--text-2);
+    text-wrap: pretty;
+  }
+  .posts__meta {
+    justify-content: flex-end;
+  }
+  .index__meta,
+  .posts__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    margin: 0;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .index__ext {
+    justify-self: end;
+    position: relative;
+    z-index: 1;
+    color: var(--muted);
+    font-size: 13px;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: color 0.25s ease;
+  }
+  .index__ext:hover {
+    color: var(--text);
+  }
+
+  .posts__item {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 6fr) minmax(0, 5fr) minmax(0, 2fr);
+    align-items: baseline;
+    gap: 8px var(--gutter);
+    padding: 26px 0;
+    border-bottom: 1px solid var(--hair);
+  }
+  .posts__link {
+    text-decoration: none;
+  }
+  .posts__link::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+  }
+  .posts__title {
+    font-size: clamp(20px, 1.8vw, 24px);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+    text-wrap: balance;
+  }
+  .posts__item:hover .posts__title {
+    text-decoration: underline;
+    text-decoration-color: var(--hair-strong);
+    text-underline-offset: 6px;
+  }
+  .badge {
+    padding: 2px 7px;
+    border: 1px solid var(--hair-strong);
+    border-radius: 999px;
+    color: var(--text-2);
+  }
+
+  @media (max-width: 900px) {
+    .after-block__head {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .index__item,
+    .posts__item {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 10px;
+    }
+    .index__ext {
+      justify-self: start;
+    }
+    .posts__meta {
+      justify-content: flex-start;
+    }
+  }
+</style>

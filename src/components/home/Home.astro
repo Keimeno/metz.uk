@@ -1,0 +1,77 @@
+---
+// The home page, in either language: the thread, then the rest of the work and the writing.
+import SiteFooter from "../layout/SiteFooter.astro";
+import Base from "../../layouts/Base.astro";
+import { HOME } from "../../i18n/home";
+import { alternatesOf, type Locale } from "../../i18n/routes";
+import { IDS } from "../../lib/seo";
+import HomeAfter from "./HomeAfter.astro";
+import Thread from "./Thread.astro";
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const c = HOME[locale];
+const alternates = alternatesOf("home");
+---
+
+<Base
+  title={c.title}
+  description={c.description}
+  locale={locale}
+  alternates={alternates}
+  ogType="profile"
+  ld={{ type: "ProfilePage", mainEntity: IDS.person }}>
+  <main id="main">
+    <Thread locale={locale} alternates={alternates} />
+    <div class="curtain" data-curtain>
+      <HomeAfter locale={locale} />
+    </div>
+  </main>
+  <div class="curtain curtain--foot">
+    <SiteFooter locale={locale} alternates={alternates} />
+  </div>
+</Base>
+
+<script>
+  import { bootThread } from "../../thread/boot";
+
+  bootThread();
+
+  // Once the page below the thread reaches the header, the header steps aside (it is fixed while
+  // the thread runs and would sit on top of the text).
+  const curtain = document.querySelector("[data-curtain]");
+  if (curtain && "IntersectionObserver" in window) {
+    const root = document.documentElement;
+    new IntersectionObserver(
+      ([entry]) =>
+        root.classList.toggle("thread-past", entry.boundingClientRect.top < innerHeight * 0.08),
+      { rootMargin: "0px 0px -92% 0px", threshold: [0, 1] }
+    ).observe(curtain);
+  }
+</script>
+
+<style>
+  /* Everything after the thread slides up over it, like a sheet over the light. */
+  .curtain {
+    position: relative;
+    z-index: 2;
+    background: var(--ink);
+  }
+  .curtain[data-curtain]::before {
+    content: "";
+    position: absolute;
+    inset: -22vh 0 100%;
+    background: linear-gradient(to bottom, transparent, var(--ink));
+    pointer-events: none;
+  }
+  /* The fade only matters over the thread's light. */
+  :global(html:not(.thread-on)) .curtain[data-curtain]::before {
+    display: none;
+  }
+  .curtain--foot {
+    padding-top: clamp(88px, 14vh, 160px);
+  }
+</style>
