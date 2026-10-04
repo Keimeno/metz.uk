@@ -1,0 +1,342 @@
+---
+// Who Constantin Metz is, in either language: the page search engines should take as the answer.
+// Employers are not named here (that's the history page's job).
+import Page from "../../layouts/Page.astro";
+import { PERSON } from "../../data/person";
+import { publicFileExists } from "../../lib/files";
+import { IDS } from "../../lib/seo";
+import { alternatesOf, projectPath, route, type Locale } from "../../i18n/routes";
+import { useT } from "../../i18n/ui";
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = useT(locale);
+const hasPortrait = publicFileExists(PERSON.portrait.src);
+const appStore = "https://apps.apple.com/app/zenarios/id6819013653";
+
+const copy = {
+  en: {
+    title: "About Constantin Metz · Software engineer in Munich",
+    description:
+      "Constantin Metz is a self-taught software engineer from Munich. He builds products end to end, from simulation engines to interfaces and launch films.",
+    h1: "About",
+    lead: "Constantin Metz is a self-taught software engineer from Munich. He builds products end to end: the engine, the interface, the infrastructure underneath, and the film that launches them.",
+    portraitAlt: "Constantin Metz",
+    facts: [
+      { k: "Based in", v: "Munich, Germany" },
+      { k: "Also known as", v: "Keimeno (on GitHub and GitLab)" },
+      { k: "Works on", v: "TypeScript, React and React Native, Node.js, Python, WebGL" },
+      { k: "Now", v: "AI for industrial quoting at a Y Combinator startup" },
+      { k: "Open source", v: "Sequelize maintainers team, 2020–2021" },
+      { k: "Languages", v: "German, English" },
+    ],
+  },
+  de: {
+    title: "Über Constantin Metz · Softwareentwickler in München",
+    description:
+      "Constantin Metz ist autodidaktischer Softwareentwickler aus München. Er baut Produkte von Anfang bis Ende, von Simulations-Engines bis zu Oberflächen und Launch-Filmen.",
+    h1: "Über mich",
+    lead: "Constantin Metz ist ein autodidaktischer Softwareentwickler aus München. Er baut Produkte von Anfang bis Ende: die Engine, die Oberfläche, die Infrastruktur darunter und den Film, mit dem sie starten.",
+    portraitAlt: "Constantin Metz",
+    facts: [
+      { k: "Lebt in", v: "München" },
+      { k: "Auch bekannt als", v: "Keimeno (auf GitHub und GitLab)" },
+      { k: "Arbeitet mit", v: "TypeScript, React und React Native, Node.js, Python, WebGL" },
+      { k: "Jetzt", v: "KI für Angebote in der Industrie bei einem Y-Combinator-Start-up" },
+      { k: "Open Source", v: "Maintainer-Team von Sequelize, 2020–2021" },
+      { k: "Sprachen", v: "Deutsch, Englisch" },
+    ],
+  },
+}[locale];
+---
+
+<Page
+  title={copy.title}
+  description={copy.description}
+  locale={locale}
+  alternates={alternatesOf("about")}
+  section="about"
+  ogType="profile"
+  ld={{
+    type: "ProfilePage",
+    mainEntity: IDS.person,
+    crumbs: [[t("nav.about"), route("about", locale)]],
+  }}>
+  <div class="wrap about">
+    <header class="page-head about__head">
+      <p class="eyebrow">{t("about.title")}</p>
+      <h1>{copy.h1}</h1>
+      <p class="about__lead">{copy.lead}</p>
+    </header>
+
+    <figure class="portrait">
+      {hasPortrait ? (
+        <img
+          src={PERSON.portrait.src}
+          width={PERSON.portrait.width}
+          height={PERSON.portrait.height}
+          alt={copy.portraitAlt}
+          decoding="async"
+          fetchpriority="high"
+        />
+      ) : (
+        <div class="portrait__placeholder" role="img" aria-label={t("about.portraitPending")}>
+          <svg viewBox="0 0 400 500" aria-hidden="true">
+            <path
+              d="M40 380 C 120 380, 140 210, 210 210 S 300 330, 360 160"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
+            <circle cx="360" cy="160" r="3.5" fill="currentColor" />
+          </svg>
+          <span class="portrait__mono">CM</span>
+        </div>
+      )}
+    </figure>
+
+    <div class="about__body prose">
+      {locale === "en" ? (
+        <>
+          <p>
+            I taught myself to program as a kid: HTML, CSS and JavaScript first, then Java, writing
+            Minecraft mods. While still at school I built the web services for a Minecraft server
+            network, including a hand-rolled OpenID Connect provider that gave its forum, website
+            and game one sign-in. I <a href={route("writing", locale)}>wrote about how it worked</a>{" "}
+            and how I'd build it today.
+          </p>
+          <p>
+            At 18 I was working as a developer part-time, alongside school, and a year later as a
+            senior developer. Around the same time I joined the maintainers team of Sequelize, the
+            Node.js ORM, as it moved to TypeScript. Since then I've built client architectures and
+            design systems, an offline-capable kiosk platform, and marketplace apps for Jira. The{" "}
+            <a href={route("history", locale)}>history page</a> has the whole story, with names.
+          </p>
+          <p>
+            Outside work I build my own products. The largest is{" "}
+            <a href={projectPath("zenarios", locale)}>Zenarios</a>, a financial planner for iPhone
+            and Mac that I designed and built alone: a month-by-month simulation engine with a
+            thousand market futures, tax rules for 38 countries, the app, the website and a launch
+            film with a soundtrack synthesized in code. It's <a href={appStore}>on the App Store</a>
+            .
+          </p>
+          <p>
+            I like problems where both the engine and the interface are hard: numerical code that
+            has to be right, and a screen that makes it obvious. Lately I work with an agent
+            workflow, designing and directing the work, which lets one person ship what used to take
+            a team. The rest is on the <a href={route("work", locale)}>work page</a>.
+          </p>
+        </>
+      ) : (
+        <>
+          <p>
+            Programmieren habe ich mir als Kind selbst beigebracht: erst HTML, CSS und JavaScript,
+            dann Java über Minecraft-Mods. Noch in der Schule habe ich die Webdienste für ein
+            Minecraft-Servernetzwerk gebaut, darunter einen selbst geschriebenen
+            OpenID-Connect-Provider, der Forum, Website und Spiel einen gemeinsamen Login gab. Wie
+            er funktioniert hat und wie ich ihn heute bauen würde, steht in einem{" "}
+            <a href={route("writing", locale)}>eigenen Text</a>.
+          </p>
+          <p>
+            Mit 18 habe ich neben der Schule in Teilzeit als Entwickler gearbeitet, ein Jahr später
+            als Senior Developer. Etwa zur selben Zeit kam ich ins Maintainer-Team von Sequelize,
+            dem ORM für Node.js, als es auf TypeScript umzog. Seitdem habe ich Client-Architekturen
+            und Design-Systeme gebaut, eine offlinefähige Kiosk-Plattform und Marketplace-Apps für
+            Jira. Die ganze Geschichte, mit Namen, steht im{" "}
+            <a href={route("history", locale)}>Werdegang</a>.
+          </p>
+          <p>
+            Neben der Arbeit baue ich eigene Produkte. Das größte ist{" "}
+            <a href={projectPath("zenarios", locale)}>Zenarios</a>, ein Finanzplaner für iPhone und
+            Mac, den ich allein entworfen und gebaut habe: eine Simulations-Engine, die Monat für
+            Monat rechnet und tausend Marktverläufe durchspielt, Steuerregeln für 38 Länder, die
+            App, die Website und ein Launch-Film mit einem Soundtrack, der im Code synthetisiert
+            wird. Es ist <a href={appStore}>im App Store</a>.
+          </p>
+          <p>
+            Am liebsten mag ich Probleme, bei denen Engine und Oberfläche beide schwer sind:
+            numerischer Code, der stimmen muss, und ein Bildschirm, der ihn selbstverständlich
+            wirken lässt. Inzwischen arbeite ich mit einem Agent-Workflow: Ich entwerfe und steuere
+            die Arbeit, und so liefert eine Person, wofür früher ein Team nötig war. Der Rest steht
+            bei den <a href={route("work", locale)}>Projekten</a>.
+          </p>
+        </>
+      )}
+    </div>
+
+    <aside class="about__side">
+      <section aria-labelledby="facts">
+        <h2 id="facts" class="eyebrow">
+          {t("about.facts")}
+        </h2>
+        <dl class="facts">
+          {copy.facts.map((f) => (
+            <div>
+              <dt>{f.k}</dt>
+              <dd>{f.v}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+      <section aria-labelledby="profiles">
+        <h2 id="profiles" class="eyebrow">
+          {t("about.profiles")}
+        </h2>
+        <ul class="profiles">
+          <li>
+            <a href={`mailto:${PERSON.email}`}>
+              <span>Email</span>
+              <span>{PERSON.email}</span>
+            </a>
+          </li>
+          {PERSON.profiles.map((p) => (
+            <li>
+              <a href={p.href} rel="me noopener">
+                <span>{p.label}</span>
+                <span>{p.handle}</span>
+              </a>
+            </li>
+          ))}
+          <li>
+            <a href={appStore} rel="noopener">
+              <span>App Store</span>
+              <span>Zenarios</span>
+            </a>
+          </li>
+        </ul>
+      </section>
+    </aside>
+  </div>
+</Page>
+
+<style>
+  .about {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    grid-template-areas:
+      "head portrait"
+      "body side";
+    gap: 0 var(--gutter);
+  }
+  .about__head {
+    grid-area: head;
+    align-self: end;
+  }
+  .about__lead {
+    max-width: 30ch;
+    margin: 30px 0 0;
+    color: var(--text);
+    font-size: clamp(22px, 2.2vw, 30px);
+    letter-spacing: -0.02em;
+    line-height: 1.3;
+    text-wrap: pretty;
+  }
+  .portrait {
+    grid-area: portrait;
+    align-self: end;
+    margin: clamp(56px, 12vh, 140px) 0 clamp(40px, 7vh, 72px);
+    aspect-ratio: 4 / 5;
+    overflow: hidden;
+    border-radius: 22px;
+    background: var(--ink-2);
+  }
+  .portrait img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .portrait__placeholder {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    border: 1px solid var(--hair);
+    border-radius: inherit;
+    background:
+      radial-gradient(80% 60% at 70% 30%, rgba(237, 235, 230, 0.07), transparent 70%), var(--ink-2);
+    color: var(--text);
+  }
+  .portrait__placeholder svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0.55;
+    filter: drop-shadow(0 0 6px rgba(237, 235, 230, 0.6));
+  }
+  .portrait__mono {
+    font-size: clamp(64px, 8vw, 120px);
+    font-weight: 500;
+    letter-spacing: -0.06em;
+    opacity: 0.16;
+  }
+  .about__body {
+    grid-area: body;
+  }
+  .about__side {
+    grid-area: side;
+    display: grid;
+    align-content: start;
+    gap: 48px;
+  }
+  .facts {
+    margin: 16px 0 0;
+    border-top: 1px solid var(--hair);
+  }
+  .facts div {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--hair);
+    font-size: 15px;
+  }
+  .facts dt {
+    color: var(--muted);
+  }
+  .facts dd {
+    margin: 0;
+    color: var(--text-2);
+  }
+  .profiles {
+    margin: 16px 0 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--hair);
+  }
+  .profiles a {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--hair);
+    font-size: 15px;
+    text-decoration: none;
+  }
+  .profiles a span:last-child {
+    color: var(--muted);
+    transition: color 0.25s ease;
+  }
+  .profiles a:hover span:last-child {
+    color: var(--text);
+  }
+  @media (max-width: 900px) {
+    .about {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas: "head" "portrait" "body" "side";
+    }
+    .portrait {
+      width: min(360px, 100%);
+      margin-top: 0;
+    }
+    .about__side {
+      margin-top: 56px;
+    }
+  }
+</style>
