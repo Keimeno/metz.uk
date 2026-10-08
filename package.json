@@ -11,6 +11,7 @@
     "check": "astro check",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "verify": "node scripts/verify-dist.mjs",
     "gen:stills": "node scripts/gen/stills.mjs"
   },
   "dependencies": {
