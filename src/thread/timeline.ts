@@ -7,6 +7,7 @@ import * as history from "./stations/history";
 import * as intro from "./stations/intro";
 import * as origins from "./stations/origins";
 import * as paperscores from "./stations/paperscores";
+import * as signals from "./stations/signals";
 import * as zenarios from "./stations/zenarios";
 
 export * from "./beats";
@@ -15,6 +16,7 @@ export * from "./beats";
 export const STATION_MODULES = [
   intro.intro,
   zenarios.zenarios,
+  signals.signals,
   paperscores.paperscores,
   origins.origins,
   history.history,
@@ -27,6 +29,7 @@ const prefixed = (prefix: string, cues: Record<string, Cue>) =>
 export const CUES: Record<string, Cue> = {
   ...prefixed("intro", intro.CUES),
   ...prefixed("zen", zenarios.CUES),
+  ...prefixed("sig", signals.CUES),
   ...prefixed("ps", paperscores.CUES),
   ...prefixed("org", origins.CUES),
   ...prefixed("his", history.CUES),
@@ -37,6 +40,7 @@ export const CUES: Record<string, Cue> = {
 export const PANELS = {
   ...intro.PANELS,
   ...zenarios.PANELS,
+  ...signals.PANELS,
   ...paperscores.PANELS,
   ...origins.PANELS,
   ...history.PANELS,
@@ -48,6 +52,7 @@ export type PanelId = keyof typeof PANELS;
 /** The chapters in the header, in order, and the station each one jumps to. */
 export const CHAPTERS: { id: string; station: StationId }[] = [
   { id: "zenarios", station: "zenarios" },
+  { id: "signals", station: "signals" },
   { id: "paperscores", station: "paperscores" },
   { id: "origins", station: "origins" },
   { id: "history", station: "history" },
