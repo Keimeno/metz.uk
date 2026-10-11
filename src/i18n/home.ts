@@ -30,6 +30,22 @@ export interface HomeCopy {
     p90: string;
     p10: string;
   };
+  sig: {
+    h2: string;
+    body: string;
+    graphKicker: string;
+    graphH2: string;
+    graphBody: string;
+    graphNote: string;
+    liveKicker: string;
+    liveH2: string;
+    liveBody: string;
+    onset: string;
+    labels: string;
+    captionLabel: string;
+    spreadLabel: string;
+    spreadSource: string;
+  };
   ps: {
     h2: string;
     body: string;
@@ -104,6 +120,24 @@ const en: HomeCopy = {
     retire: (year) => `Retirement · ${year}`,
     p90: "Best 10 %",
     p10: "Worst 10 %",
+  },
+  sig: {
+    h2: "It notices what Reddit starts talking about before it trends.",
+    body: "Every comment in 37 subreddits, counted like words: a log-odds score for what is rising today, Theil–Sen and Mann–Kendall for what grows over months.",
+    graphKicker: "Lead–lag",
+    graphH2: "And it learns which communities talk about things first.",
+    graphBody:
+      "Leader-to-follower edges between subreddits, tested for direction and turned into early warnings, then scored by replaying trends planted in the data.",
+    graphNote: "A replay with a planted trend · the subreddits are its real configuration",
+    liveKicker: "LiveTranslate",
+    liveH2: "And one that listens: a talk, captioned live in three languages.",
+    liveBody:
+      "The browser's microphone streams to Deepgram over a WebSocket, DeepL translates each finished line, and the captions build word by word.",
+    onset: "Onset",
+    labels: "The constellation",
+    captionLabel: "A live caption in German, English and Portuguese",
+    spreadLabel: "A replayed trend, spreading",
+    spreadSource: "source",
   },
   ps: {
     h2: "An AI reviewer that grades medical research before you trust it.",
@@ -195,6 +229,24 @@ const de: HomeCopy = {
     retire: (year) => `Rente · ${year}`,
     p90: "Beste 10 %",
     p10: "Schlechteste 10 %",
+  },
+  sig: {
+    h2: "Es merkt, worüber Reddit zu reden beginnt, bevor es zum Trend wird.",
+    body: "Jeder Kommentar in 37 Subreddits, Wort für Wort gezählt: ein Log-Odds-Score für das, was heute steigt, Theil–Sen und Mann–Kendall für das, was über Monate wächst.",
+    graphKicker: "Lead–Lag",
+    graphH2: "Und es lernt, welche Communitys zuerst über etwas sprechen.",
+    graphBody:
+      "Kanten von Vorreitern zu Nachzüglern zwischen Subreddits, auf ihre Richtung getestet, in Frühwarnungen übersetzt und an eingepflanzten Trends im Replay gemessen.",
+    graphNote: "Ein Replay mit eingepflanztem Trend · die Subreddits sind die echte Konfiguration",
+    liveKicker: "LiveTranslate",
+    liveH2: "Und eins, das zuhört: ein Vortrag, live untertitelt in drei Sprachen.",
+    liveBody:
+      "Das Mikrofon im Browser streamt per WebSocket zu Deepgram, DeepL übersetzt jede fertige Zeile, und die Untertitel bauen sich Wort für Wort auf.",
+    onset: "Beginn",
+    labels: "Die Konstellation",
+    captionLabel: "Ein Live-Untertitel auf Deutsch, Englisch und Portugiesisch",
+    spreadLabel: "Ein nachgespielter Trend breitet sich aus",
+    spreadSource: "Quelle",
   },
   ps: {
     h2: "Ein KI-Gutachter, der medizinische Studien bewertet, bevor man ihnen vertraut.",

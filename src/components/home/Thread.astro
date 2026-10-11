@@ -34,7 +34,7 @@ const subscores = (Object.keys(c.ps.subscores) as (keyof typeof c.ps.subscores)[
   value: scorecard.subscores[k],
 }));
 
-const chapters = (["zenarios", "paperscores", "origins", "history"] as const).map((id) => ({
+const chapters = (["zenarios", "signals", "paperscores", "origins", "history"] as const).map((id) => ({
   id,
   label: c.chapters[id],
 }));
@@ -120,6 +120,57 @@ const appStore = "https://apps.apple.com/app/zenarios/id6819013653";
         <li class="label" data-anchor="zen.p90" data-cue="zen.p90">{c.zen.p90}</li>
         <li class="label" data-anchor="zen.p10" data-cue="zen.p10">{c.zen.p10}</li>
       </ol>
+    </div>
+  </section>
+
+  <section class="station" id="signals" data-station="signals" style="--beats:3.2" aria-labelledby="st-signals">
+    <div class="station__layer">
+      <article class="panel" data-cue="sig.title">
+        <p class="kicker mono" data-scramble>02 · Signals</p>
+        <h2 id="st-signals" data-words>{c.sig.h2}</h2>
+        <p class="body">{c.sig.body}</p>
+      </article>
+      <article class="panel" data-cue="sig.graph">
+        <p class="kicker mono" data-scramble>{c.sig.graphKicker}</p>
+        <h2 data-words>{c.sig.graphH2}</h2>
+        <p class="body">{c.sig.graphBody}</p>
+        <p class="note mono">{c.sig.graphNote}</p>
+      </article>
+      <article class="panel" data-cue="sig.live">
+        <p class="kicker mono" data-scramble>{c.sig.liveKicker}</p>
+        <h2 data-words>{c.sig.liveH2}</h2>
+        <p class="body">{c.sig.liveBody}</p>
+        <p class="links">
+          <a class="cta cta--quiet" href={projectPath("signals", locale)}>{c.caseStudy} <span aria-hidden="true">→</span></a>
+        </p>
+      </article>
+
+      <figure class="doc-figure exhibit exhibit--top" aria-hidden="true">
+        <p class="eyebrow">{c.sig.spreadLabel}</p>
+        <ol class="spread">
+          {
+            ["r/LocalLLaMA", "r/MachineLearning", "r/technology", "r/de_EDV"].map((name, i) => (
+              <li style={`--level:${i}`}>
+                <span class="spread__level">{i === 0 ? c.sig.spreadSource : `+${i}`}</span>
+                <span class="spread__name">{name}</span>
+              </li>
+            ))
+          }
+        </ol>
+      </figure>
+      <ol class="labels" aria-hidden="true">
+        <li class="label" data-anchor="sig.onset" data-cue="sig.onset">{c.sig.onset}</li>
+        <li class="label label--node" data-anchor="sig.src" data-cue="sig.src">r/LocalLLaMA</li>
+        <li class="label label--node" data-anchor="sig.n1" data-cue="sig.n1">r/MachineLearning</li>
+        <li class="label label--node label--wide" data-anchor="sig.n2" data-cue="sig.n2">r/technology</li>
+        <li class="label label--node" data-anchor="sig.n3" data-cue="sig.n3">r/de_EDV</li>
+      </ol>
+      <p class="caption exhibit" data-anchor="sig.caption" data-cue="sig.caption" data-fixed-side="1">
+        <span class="visually-hidden">{c.sig.captionLabel}:</span>
+        <span class="caption__line caption__line--main" lang="de" data-words>Schön, dass ihr da seid.</span>
+        <span class="caption__line" lang="en" data-words>Great to have you here.</span>
+        <span class="caption__line" lang="pt" data-words>Que bom que vocês estão aqui.</span>
+      </p>
     </div>
   </section>
 
