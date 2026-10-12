@@ -1,0 +1,68 @@
+---
+title: "Signals"
+headline: "Two tools that listen: a statistical trend detector for 37 subreddits, and live captions for talks in three languages."
+description: "Signals by Constantin Metz: a Reddit trend detector built on log-odds, Mann–Kendall and lead–lag tests, plus live captions for talks in DE, EN and PT."
+role: "Solo · design and statistics, built with an agent workflow"
+stack: ["Python 3.13", "ClickHouse", "Grafana", "NumPy", "ntfy", "Docker Compose", "Node.js · React", "Deepgram · DeepL"]
+facts:
+  - { value: "37", label: "subreddits tracked" }
+  - { value: "2M", label: "terms tested per long-term run", note: "production-scale benchmark on synthetic data" }
+  - { value: "262 s", label: "for a year of history at scale", note: "1.03 billion daily rows, synthetic benchmark, 4 CPUs" }
+  - { value: "3", label: "languages captioned live" }
+---
+
+## The problem
+
+Which words are gaining share of the conversation in a community, measured against its own normal? I first asked this in 2020 with WGRA (Word Growth Rate Analyzer) v1, in TypeScript and MongoDB. It could tell you how a word you had already picked was doing, but not find the ones you didn't know to ask about, and a nightly job deleted the long tail, where new trends start.
+
+Discovery means scoring every term in every community on every run, then deciding which of thousands of numbers are real: a statistics problem first, a storage problem second.
+
+The second tool is simpler: at a talk, people should be able to read along in their own language.
+
+## What I built
+
+**WGRA v2** ([code on the `wgra-v2` branch](https://github.com/Keimeno/word-growth-rate-analyzer/tree/wgra-v2)) is a single-machine Python service. An ingester polls 37 subreddits in six groups as multireddit feeds, plus an r/all sample as background vocabulary. It stays well inside Reddit's free API tier. Every comment and post becomes one row per distinct term (words, two- and three-word phrases, linked domains, subreddit mentions) in a ClickHouse `Null` table; materialised views roll them up into hourly and daily counts with a HyperLogLog sketch of distinct authors. Authors are only ever a keyed hash, and raw text is deleted after 48 hours.
+
+Every 15 minutes an analyser scores short-term bursts (the last 24 hours against the 28 days before, the last 6 hours against the same hours of earlier days). Once a day it looks for steady trends over 13, 26 and 52 weeks and learns which subreddits pick up terms before others. Results land in Grafana dashboards generated from code; the strongest reach my phone through ntfy.
+
+I designed and directed it with an agent workflow over 10 and 11 October 2026; the [architecture document](https://github.com/Keimeno/word-growth-rate-analyzer/blob/wgra-v2/docs/ARCHITECTURE-V2.md) records every decision and measurement.
+
+**LiveTranslate** ([repository](https://github.com/Keimeno/livetranslate)) is a 16:9 caption screen for talks. The browser records the microphone in one-second WebM chunks and streams them over a WebSocket to a small Node server, which holds a live Deepgram connection. Each finished line is translated by DeepL into the other two of German, English and Portuguese.
+
+## The hard parts
+
+**Scoring bursts without drowning in rare words.** A plain ratio of shares (comments mentioning a term over all comments) explodes for rare terms: one mention against none is infinite growth. I use the weighted log-odds ratio with an informative Dirichlet prior from Monroe, Colaresi and Quinn's *Fightin' Words*. Pseudo-counts centred on the term's share of the r/all sample shrink thin evidence towards "normal for Reddit", and `z = δ / σ` ranks terms by strength of evidence, not size of ratio.
+
+The paper compares corpora of similar size. Here the reference period is 28 times the window, and equal pseudo-counts pulled the small side much harder: a stable term at 0.1 % of a subreddit and 5 % of Reddit scored 3.2× (z 6.5) while nothing changed. So each side gets pseudo-counts in proportion to its own size, and a term whose share doesn't move scores exactly zero. A floor of one pseudo-mention keeps brand-new names finite, and on the first day the Reddit-wide share stands in for missing history. From `v2/src/wgra/detect/scoring.py`:
+
+```python
+def score(self, prior: Prior) -> Score:
+    # see "the first day" above
+    missing_history = max(self.total - self.reference_total, 0)
+    return log_odds(
+        self.mentions,
+        self.total,
+        self.reference_mentions,
+        self.reference_total,
+        prior.pseudo_counts(self.sample_mentions, prior.weight * self.total),
+        prior.pseudo_counts(
+            self.sample_mentions, prior.weight * self.reference_total + missing_history
+        ),
+    )
+```
+
+**Long-term trends that survive multiple testing.** Weekly shares are noisy, often zero and full of spikes. A least-squares line in ClickHouse cheaply picks the 100 most promising terms per scope and window; Python runs the robust statistics on those. Theil–Sen (the median of all pairwise slopes) estimates growth per month: on test data, one week at 20× the usual share made least squares report +34 % a month and Theil–Sen +2 %. Mann–Kendall tests whether a trend exists at all, by counting week pairs that go up against those that go down, with tie corrections for weeks without a mention.
+
+Benjamini–Hochberg then controls the false discovery rate over every term the run tested, with non-candidates counted as p = 1. Correcting over the candidates alone found 105 "trends" in two subreddits of pure noise, as they are the most extreme of thousands; over all of them it found none among 2 million noise terms. The price: with 13 weekly points the smallest possible Mann–Kendall p is 2.6·10⁻⁶, so a 13-week trend has to be almost perfectly monotonic. One run over a year of synthetic history at production scale, 1.03 billion daily rows, takes 262 s on 4 CPUs and 8 GB.
+
+**Lead–lag: association is not direction.** Each strong trend becomes an event; every subreddit and group gets an onset, the first hour its trailing 24 hours pass the gates against its own past. Groups are also measured without each member, so "r/LocalLLaMA leads tech" isn't true by construction. For each leader and follower over 180 days, a one-sided binomial test asks whether the follower crosses within 7 days more often than its base rate, corrected over all pairs. On the benchmark this found the 5 planted pairs and about 240 random ones: big stories reach many subreddits, so any two co-occur.
+
+The fix was a second test: among events where both crossed, the leader has to come first significantly more often than a coin flip, and in at least 70 % of them. That left 14 edges: the 5 planted pairs, 8 group and topic versions of them, and one other. Probabilities are a Beta posterior shrunk towards the base rate by four pseudo-events, so 3 hits of 3 at a base rate of 0.2 read as 54 % (27–80 %), not 100 %. Edges are relearned daily, with no lookahead.
+
+**What the replay shows, and what it doesn't.** In the end-to-end test one synthetic subreddit leads another by three days on 18 planted terms. A daily replay gets 13 of 15 forecasts right (87 % precision), 23 % recall, and a Brier score of 0.099 against 0.330 for always forecasting the base rate. On the larger benchmark, where planted followers follow only about 40 % of the time, precision is 43 % and calibrated (Brier 0.249 against 0.276). Both are replays on planted data: they show the method recovers structure that is there, and nothing yet about Reddit.
+
+**Captions that keep up.** Deepgram's interim results go on screen at once, a line closes after 300 ms of silence, and only final lines go to DeepL's latency-optimised model.
+
+## Status
+
+The first live days of WGRA v2 ran on my machine. Short-term detection needs four weeks for its full reference period, lead–lag edges four to six weeks, long-term trends 13 complete weeks. Real long-horizon data only accumulates from November 2026. LLM explanations of trends are designed, not built. LiveTranslate is a single-commit tool from July 2026 that needs Deepgram and DeepL keys.

@@ -67,6 +67,21 @@ export const PROJECTS = [
     },
   },
   {
+    slug: "signals",
+    years: "2026",
+    station: "signals",
+    tint: "#ffbd52",
+    links: [
+      {
+        kind: "repo",
+        href: "https://github.com/Keimeno/word-growth-rate-analyzer/tree/wgra-v2",
+        label: "WGRA v2",
+      },
+      { kind: "repo", href: "https://github.com/Keimeno/livetranslate", label: "LiveTranslate" },
+    ],
+    schema: { type: "CreativeWork" },
+  },
+  {
     slug: "paperscores",
     years: "2025–2026",
     station: "paperscores",

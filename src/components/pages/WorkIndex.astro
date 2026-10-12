@@ -19,8 +19,8 @@ const more = projects.filter((p) => !p.def.station);
 const title = locale === "de" ? "Projekte · Constantin Metz" : "Work · Constantin Metz";
 const description =
   locale === "de"
-    ? "Projekte von Constantin Metz: Zenarios, PaperScores, die Anfänge mit OpenID Connect und Sequelize, und kleinere Tools. Jeweils mit Fallstudie."
-    : "Projects by Constantin Metz: Zenarios, PaperScores, the OpenID Connect and Sequelize origins, and smaller tools. Each with a case study.";
+    ? "Projekte von Constantin Metz: Zenarios, Signals, PaperScores, die Anfänge mit OpenID Connect und Sequelize, und kleinere Tools. Jeweils mit Fallstudie."
+    : "Projects by Constantin Metz: Zenarios, Signals, PaperScores, the OpenID Connect and Sequelize origins, and smaller tools. Each with a case study.";
 const stillOf = (station?: string) => {
   const src = station ? `/media/thread/${station}.webp` : null;
   return src && publicFileExists(src) ? src : null;
