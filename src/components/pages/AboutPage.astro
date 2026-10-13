@@ -2,6 +2,7 @@
 // Who Constantin Metz is, in either language: the page search engines should take as the answer.
 // Employers are not named here (that's the history page's job).
 import Page from "../../layouts/Page.astro";
+import Email from "../ui/Email.astro";
 import { PERSON } from "../../data/person";
 import { publicFileExists } from "../../lib/files";
 import { IDS } from "../../lib/seo";
@@ -190,10 +191,9 @@ const copy = {
         </h2>
         <ul class="profiles">
           <li>
-            <a href={`mailto:${PERSON.email}`}>
-              <span>Email</span>
-              <span>{PERSON.email}</span>
-            </a>
+            <Email locale={locale}>
+              <span>{locale === "de" ? "E-Mail" : "Email"}</span>
+            </Email>
           </li>
           {PERSON.profiles.map((p) => (
             <li>

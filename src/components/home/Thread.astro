@@ -7,6 +7,7 @@
 import zen from "../../generated/zenarios.json";
 import scorecard from "../../../data/sources/paperscores/scorecard.json";
 import LangSwitch from "../layout/LangSwitch.astro";
+import Email from "../ui/Email.astro";
 import { HOME } from "../../i18n/home";
 import { INTL_LOCALE, projectPath, route, type Alternates, type Locale } from "../../i18n/routes";
 import { useT } from "../../i18n/ui";
@@ -288,7 +289,7 @@ const appStore = "https://apps.apple.com/app/zenarios/id6819013653";
         <p class="kicker mono" data-scramble>{c.end.kicker}</p>
         <p class="end__title" data-words>{c.end.h2}</p>
         <p class="links links--center">
-          <a class="cta" href="mailto:constantin@metz.uk">constantin@metz.uk</a>
+          <Email class="cta" locale={locale} />
           <a class="cta cta--quiet" href={route("work", locale)}>{c.end.work}</a>
           <a class="cta cta--quiet" href={route("about", locale)}>{c.end.about}</a>
         </p>

@@ -24,7 +24,7 @@ export const GET: APIRoute = async ({ site }) => {
     "- Now builds AI for industrial quoting at a Y Combinator startup.",
     "- Builds his own products alongside: the largest is Zenarios, a financial planning app for iPhone and Mac, designed and built alone.",
     "- Open source: on the maintainers team of Sequelize, the Node.js ORM, 2020–2021.",
-    `- Contact: ${PERSON.email}`,
+    `- Contact: see ${abs(route("about", "en"))}`,
     "",
     "## About",
     "",

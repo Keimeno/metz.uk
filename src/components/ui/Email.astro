@@ -1,0 +1,58 @@
+---
+// His email address, kept out of the page source so scrapers don't harvest it. The HTML holds the
+// address reversed (and no mailto:), shown the right way round with a bidi override; the first
+// real interaction (a pointer, a key, a touch, focus) turns every address on the page into a plain
+// mailto: link, before any click lands. Without JavaScript it still reads correctly and links to
+// the imprint. Any content passed in goes before the address, inside the link.
+import { PERSON } from "../../data/person";
+import { route, type Locale } from "../../i18n/routes";
+import { useT } from "../../i18n/ui";
+
+interface Props {
+  locale: Locale;
+  class?: string;
+  address?: string;
+}
+
+// The rest carries the parent's scoped-style attribute, so `class` can be styled from there.
+const { locale, class: className, address = PERSON.email, ...rest } = Astro.props;
+const t = useT(locale);
+const reversed = [...address].reverse().join("");
+---
+
+<a
+  class:list={["email", className]}
+  href={route("imprint", locale)}
+  aria-label={t("email.label")}
+  data-email
+  {...rest}>
+  <slot /><span class="email__addr" data-addr>{reversed}</span>
+</a>
+
+<script>
+  const upgrade = () => {
+    for (const a of document.querySelectorAll<HTMLAnchorElement>("a[data-email]")) {
+      const addr = a.querySelector<HTMLElement>("[data-addr]");
+      if (!addr?.textContent) continue;
+      const email = [...addr.textContent].reverse().join("");
+      addr.textContent = email;
+      addr.removeAttribute("data-addr");
+      a.href = `mailto:${email}`;
+      a.removeAttribute("aria-label");
+      a.removeAttribute("data-email");
+    }
+  };
+  const events = ["pointermove", "pointerdown", "touchstart", "keydown", "focusin"] as const;
+  const once = () => {
+    for (const e of events) removeEventListener(e, once, true);
+    upgrade();
+  };
+  for (const e of events) addEventListener(e, once, { capture: true, passive: true });
+</script>
+
+<style>
+  .email__addr[data-addr] {
+    unicode-bidi: bidi-override;
+    direction: rtl;
+  }
+</style>

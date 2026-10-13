@@ -67,6 +67,8 @@ const en = {
   "about.profiles": "Profiles",
   "about.portraitPending": "Portrait coming soon",
 
+  "email.label": "Email Constantin Metz",
+
   "history.title": "History",
 
   "home.chapters": "Chapters",
@@ -147,6 +149,8 @@ const de = {
   "about.facts": "Fakten",
   "about.profiles": "Profile",
   "about.portraitPending": "Porträt folgt",
+
+  "email.label": "E-Mail an Constantin Metz",
 
   "history.title": "Werdegang",
 

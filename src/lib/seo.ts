@@ -53,7 +53,6 @@ function person(locale: Locale, employers: boolean): Node {
     name: PERSON.name,
     alternateName: PERSON.alternateName,
     url: abs("/"),
-    email: PERSON.email,
     jobTitle: PERSON.jobTitle[locale],
     description: PERSON.summary[locale],
     homeLocation: {

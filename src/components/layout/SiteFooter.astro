@@ -4,6 +4,7 @@ import { PERSON } from "../../data/person";
 import { route, rssPath, type Alternates, type Locale } from "../../i18n/routes";
 import { useT } from "../../i18n/ui";
 import LangSwitch from "./LangSwitch.astro";
+import Email from "../ui/Email.astro";
 
 interface Props {
   locale: Locale;
@@ -20,7 +21,7 @@ const year = new Date().getFullYear();
     <div class="site-footer__contact">
       <p class="site-footer__name">Constantin Metz</p>
       <p class="site-footer__role">{t("site.role")}</p>
-      <a class="site-footer__email" href={`mailto:${PERSON.email}`}>{PERSON.email}</a>
+      <Email class="site-footer__email" locale={locale} />
     </div>
     <nav class="site-footer__cols" aria-label={t("footer.site")}>
       <div>
