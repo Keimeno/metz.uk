@@ -1,0 +1,268 @@
+---
+title: "How the Thread works"
+description: "One line of light through 3D space, driven by native scroll: the raw WebGL2 renderer, the camera and the data behind the metz.uk home page."
+slug: "how-the-thread-works"
+published: 2026-10-15
+draft: true
+---
+
+The home page of this site is one line. It writes my name over the headline, then scrolling pulls it into 3D space, and at each stop it draws something from one of my projects: a forecast that bursts into 1,000 market futures, a constellation of subreddits, a graded paper, a sign-in flow and a git branch, a timeline. At the end the camera rises and shows the whole path.
+
+It's raw WebGL2 with no runtime dependencies: no Three.js, no animation library. `src/thread/` is just under 3,800 lines of TypeScript and 400 of GLSL. I designed and directed it and built it with an agent workflow.
+
+## Time is counted in beats
+
+Everything runs off one number, `t`, measured in beats. A beat is one viewport height of scrolling:
+
+```ts
+// src/thread/beats.ts
+export const STATIONS: { id: StationId; beats: number }[] = [
+  { id: "intro", beats: 1 },
+  { id: "zenarios", beats: 3.8 },
+  { id: "signals", beats: 3.2 },
+  { id: "paperscores", beats: 2.6 },
+  { id: "origins", beats: 3.0 },
+  { id: "history", beats: 2.2 },
+  { id: "end", beats: 1.25 },
+];
+```
+
+Each station's section is `calc(var(--beats) * 100svh)` tall, so the scroll length comes from the same table. Every other timing is a cue, a start and an end in beats relative to a station: `at("zenarios", 1.42, 2.0)` is when the fan bursts. The renderer, the camera, the text panels and the labels all read one cue table in `timeline.ts`.
+
+The scene keeps no state between frames. `Scene.update(t)` rebuilds every point from `t`, so scrolling back is just a smaller `t`. A few things run on the clock instead: the name's write-on, the sparks off the pen, a slow camera drift and the light that travels along the line.
+
+## From scroll to time: a spring
+
+Scrolling is native. `ScrollTimeline.read()` maps `scrollY` to a target time, but drawing exactly that looks bad with a notched mouse wheel, where every notch is a jump. So the drawn time follows the target on a critically damped spring:
+
+```ts
+// src/thread/scroll.ts
+// Critically damped spring (the classic "SmoothDamp").
+const omega = 2 / this.smooth;
+const x = omega * dt;
+const decay = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x);
+const change = this.value - this.target;
+const temp = (this.velocity + omega * change) * dt;
+this.velocity = (this.velocity - omega * temp) * decay;
+let next = this.target + (change + temp) * decay;
+// Never overshoot the scroll position.
+if (this.target - this.value > 0 === next > this.target) {
+  next = this.target;
+  this.velocity = 0;
+}
+this.value = next;
+return this.value;
+```
+
+The settle time follows the last input: 0.28 s after a wheel event, 0.1 s after a touch so the picture stays under the finger, 0.22 s for the keyboard. The clamp means the picture never shows a moment the reader hasn't scrolled to.
+
+A jump from a chapter link or a dragged scrollbar would fly through every station in between, so past 1.5 beats the picture fades out over 0.16 s, the time snaps, and it fades back in over 0.4 s.
+
+## One line, a fixed budget of points
+
+The thread is one polyline. Each figure has a point budget (1,536 for the name, 512 for Zenarios, 768 for Signals and so on) and each connector gets 640: 7,936 points at full detail, half on the low tier. The stations sit on a descending spiral, joined by cubic Béziers.
+
+Every figure is a single stroke. Where a pen would lift, the path carries on with its intensity (the `w` of each xyzw point) at zero and is drawn as faint travel. `resample()` spaces a figure's points evenly by length, counting travel at about a third, so the visible strokes get most of the points. Keyframes of one figure share a point count, so point i morphs into point i:
+
+```ts
+// src/thread/scene.ts
+for (let i = 0; i < s.count; i++) {
+  const u = s.count > 1 ? i / (s.count - 1) : 0;
+  const x = stagger > 0 ? Math.min(Math.max((t - u * stagger) / (1 - stagger), 0), 1) : t;
+  const e = E.inOutCubic(x);
+  const o = i * 4;
+  const p = (s.start + i) * 4;
+  P[p] = from[o] + (to[o] - from[o]) * e;
+  P[p + 1] = from[o + 1] + (to[o + 1] - from[o + 1]) * e;
+  P[p + 2] = from[o + 2] + (to[o + 2] - from[o + 2]) * e;
+  // Faint pen travel turns into ink as the figure morphs.
+  P[p + 3] = brighten ? from[o + 3] + (1 - from[o + 3]) * e : from[o + 3] + (to[o + 3] - from[o + 3]) * e;
+}
+```
+
+The stagger delays each point by its position along the figure, so the morph travels from one end to the other. That's the unspool after the name: the letters pull taut along the baseline from left to right while the travel between them brightens into ink. Origins uses the same code to unfold a cube into a sign-in route, then into a git branch.
+
+I had planned to morph in the vertex shader. It runs on the CPU instead: each frame rewrites a `Float32Array` and uploads it with one `texSubImage2D`, 128 KB at full detail. In return, stations pose their figures in plain TypeScript, and the CPU has the positions it needs anyway, for the sparks at the pen's tip and the label riding the token through Origins.
+
+## A line that glows
+
+The thread has no vertex buffers. It's one `drawArrays(TRIANGLE_STRIP, 0, count * 2)` with an empty VAO: the vertex shader takes `gl_VertexID >> 1` as the point index, fetches that point and its neighbours with `texelFetch`, and places the vertex on one side of a screen-space ribbon.
+
+Every line on the page shares the ribbon code in `ribbon.glsl`. Gentle bends get a mitre; sharp turns follow the outgoing segment, so strokes that double back don't throw spikes of glow. Width has a floor of one CSS pixel, and lines that would be thinner dim instead, so distant parts fade rather than shimmer. Because light adds up, a line seen end-on would burn to white:
+
+```glsl
+// src/thread/gl/shaders/ribbon.glsl
+// A line seen end-on stacks hundreds of its segments onto the same pixels, and additive light
+// would pile up to solid white. Dim each point by how foreshortened it is on screen, so a line
+// keeps the same brightness per pixel however it's turned.
+float worldStep = length(pNext - pPrev) * 0.5;
+float expected = worldStep * uProjScale / c.w;
+float facing = expected > 1e-3 ? clamp(length(sn - sp) * 0.5 / expected, 0.0, 1.0) : 1.0;
+float foreshorten = clamp(facing * 1.4, 0.04, 1.0);
+```
+
+The fragment shader works from the distance across the ribbon: an anti-aliased core pushed 60 % towards white, plus a Gaussian glow in the station's colour.
+
+```glsl
+// src/thread/gl/shaders/line.frag
+float d = abs(vDist);
+float core = 1.0 - smoothstep(vCore - 0.75, vCore + 0.75, d);
+float halo = exp(-(d * d) / (vSigma * vSigma));
+vec3 hot = mix(vColor.rgb, vec3(1.0), 0.6);
+vec3 c = (hot * core * uCoreGain + vColor.rgb * halo * uHaloGain) * vColor.a;
+outColor = vec4(c, 1.0);
+```
+
+Everything is added into an RGBA16F target (probed at start-up, RGBA8 where it isn't supported). A composite pass tone-maps with `1 - exp(-c)`, so overlaps saturate instead of clipping, and adds slight colour fringing, a vignette, grain and a dither against banding. The high tier adds a dual-Kawase bloom; the others rely on the glow in the line shader.
+
+The thread's shader also tracks the pen: the path ahead is a faint guide, the tip glows and the old trail dims.
+
+## 1,000 futures, one draw call
+
+At Zenarios, the forecast bursts into 1,000 market futures and then collapses onto the median. That's one instanced draw, one instance per future, 96 segments each on the high tier. The values sit in an R32F texture, a row per future and a column per year, plus rows for the forecast and the median. The vertex shader runs a Catmull-Rom spline through them:
+
+```glsl
+// src/thread/gl/shaders/fan.vert
+vec3 linePoint(float u, float r) {
+  float x = u * float(uYears - 1);
+  float v = mix(valueAt(uForecastRow, x), valueAt(gl_InstanceID, x), r);
+  v = mix(v, valueAt(uMedianRow, x), uCollapse);
+  float z = (aPct - 0.5) * uSpread * r * (1.0 - uCollapse);
+  return (uModel * vec4((u - 0.5) * uSize.x, (v - 0.5) * uSize.y, z, 1.0)).xyz;
+}
+```
+
+`r` is each future's own reveal, so the burst grows out of the forecast. `aPct`, how well that future ends, sets its depth and its colour, from coral through warm white to green. At alpha 0.03 per line, additive blending makes the fan brightest where futures agree.
+
+It isn't free: `linePoint` runs three times per vertex for the ribbon's neighbours, up to 36 texel fetches, repeated by adjacent vertices. The lower tiers draw fewer, coarser lines.
+
+Those 512 or 256 lines should still be a fair picture. The generator sorts the trials by final value and stores them in bit-reversed rank order, so any prefix spans the whole range instead of being the worst 256:
+
+```js
+// scripts/gen/zenarios.mjs
+const bits = Math.ceil(Math.log2(trials.count));
+const order = [];
+for (let k = 0; k < 1 << bits; k++) {
+  let r = 0;
+  for (let b = 0; b < bits; b++) if (k & (1 << b)) r |= 1 << (bits - 1 - b);
+  if (r < trials.count) order.push(r);
+}
+```
+
+The same order staggers the reveal, and alpha scales with the square root of 1,000 over the line count, so a smaller fan doesn't look empty.
+
+## The camera
+
+I don't place the camera by hand. A station names a target, a view direction, the figure's half-width and half-height, and the rectangle of the screen it should fill: left of the text on wide screens, above it on tall ones. `holdPose` finds the distance that fits:
+
+```ts
+// src/thread/stations/kit.ts
+const fov = fovDeg * DEG;
+const tan = Math.tan(fov / 2);
+const fw = (frame.x1 - frame.x0) / 2;
+const fh = (frame.y1 - frame.y0) / 2;
+const dist = Math.max(halfH / (tan * fh), halfW / (tan * aspect * fw));
+return {
+  pos: sub(target, scale(dir, dist)),
+  target,
+  fov,
+  shift: [(frame.x0 + frame.x1) / 2, (frame.y0 + frame.y1) / 2],
+};
+```
+
+`shift` moves the view axis instead of turning the camera. `perspective()` in `math.ts` writes it into the third column of the projection matrix, an off-axis projection: the figure is seen straight on, but sits in its rectangle. The intro's rectangle is the real `h1`, measured with a DOM Range, the font's cap height and a zero-size element on the baseline, so the drawn name lands on the typeset one before the headline fades.
+
+Between holds, `CameraRig` adds chase poses along each connector, behind and above the pen. All keys are joined by a cubic Hermite spline in timeline time over nine numbers: position, target, field of view and lens shift. Tangents come from the neighbouring keys and holds get zero velocity, so the camera eases into each figure and out again without kinks. At the end it rises above the spiral and the fog is pushed back to show the whole path.
+
+## Keeping the HTML in step
+
+All text is HTML, fixed over the canvas while the thread runs. `DomSync` in `sync.ts` writes styles and never reads layout per frame.
+
+- Panels carry a `data-cue`. Each panel's visibility goes into one CSS custom property, `--v`, when it changes, and the CSS staggers the words.
+- Labels carry a `data-anchor`, a 3D point on a figure, projected with the renderer's own matrix and applied with `translate3d`.
+- The app screenshot at Zenarios is an `img` mapped into the scene with a `matrix3d`: element pixels to world units, then the camera, then clip space to CSS pixels.
+
+```ts
+// src/thread/sync.ts
+// Element px → world.
+const model = mat4();
+model.set([
+  right[0] * sx, right[1] * sx, right[2] * sx, 0,
+  -up[0] * sy, -up[1] * sy, -up[2] * sy, 0,
+  normal[0] * 0.001, normal[1] * 0.001, normal[2] * 0.001, 0,
+  corner[0], corner[1], corner[2], 1,
+]);
+// Clip space → CSS px (y down).
+const s = this.screen;
+s.set([width / 2, 0, 0, 0, 0, -height / 2, 0, 0, 0, 0, 1, 0, width / 2, height / 2, 0, 1]);
+multiply(this.tmp, viewProj, model);
+multiply(this.m, s, this.tmp);
+return `matrix3d(${Array.from(this.m, (n) => n.toFixed(6)).join(",")})`;
+```
+
+`matrix3d` keeps the homogeneous row, so the browser does the perspective divide itself. The screenshot sits in the scene and is still a real image with alt text.
+
+## Quality tiers and a watchdog
+
+The tier is a guess at start-up, from the GPU's name and the pointer type:
+
+```ts
+// src/thread/quality.ts
+export const TIERS: Record<Tier, Omit<Quality, "tier">> = {
+  high: { dprCap: 2, fan: 1000, fanSegs: 96, bloom: true, detail: 1, dust: 1100 },
+  mid: { dprCap: 2, fan: 512, fanSegs: 72, bloom: false, detail: 1, dust: 650 },
+  low: { dprCap: 1.5, fan: 256, fanSegs: 48, bloom: false, detail: 0.5, dust: 300 },
+};
+```
+
+Software renderers get low. Touch devices get mid with six or more cores, otherwise low. Apple, NVIDIA, AMD Radeon and Intel Arc GPUs get high, everything else mid.
+
+Then the frame time decides. `FrameMonitor` keeps the last 120 frame times. When the 90th percentile is over 18 ms, so more than one frame in ten missed a 60 Hz deadline, the render scale steps from 1 to 0.85 to 0.7; after that the tier drops and the scale resets. Each step starts a cooldown, and nothing steps back up, so the picture doesn't pump between sharp and soft. Two limits: a tier drop doesn't rebuild the point budgets, and the ladder ends at the low tier at 0.7 scale. Nothing switches the thread off for a device that still can't keep up.
+
+## Where the data comes from
+
+The Zenarios figure is real engine output. `scripts/gen/zenarios.mjs` bundles an entry file with the app's own domain and engine code using esbuild, and fails if React, React Native or Expo get into the bundle: the engine has to stay pure to run in Node. It builds the app's built-in example household, projects it month by month with a fixed clock, and runs the Monte Carlo simulation with early stopping off:
+
+```ts
+// scripts/gen/zenarios-entry.ts
+const seed = seedFromString(`example:${EXAMPLE}`);
+const run = createMonteCarloRun(snapshot, getDefaultMetricRegistry(), {
+  seed,
+  maxTrials: 1000,
+  minTrials: 1000,
+  targetStandardErrorBp: 0,
+});
+while (!run.finished()) run.step(100);
+```
+
+With the defaults, a run may stop after 300 trials, once the standard error of its success rate is under 120 basis points, and "1,000 futures" would be false. The output, 645 months of forecast and 1,000 futures of 55 year-end values, is compressed with `asinh` into display units, the futures quantised to 8 bits, and committed with its provenance: engine version, input hash, seed and the app's commit. The site builds without the app.
+
+The other stations, precisely:
+
+- **Signals.** The 37 subreddits and their groups are the real configuration of WGRA, the trend analyser behind Signals. The trend and its path from leaders to followers are a replay with a planted trend, which is how its lead–lag model is tested; the curve is generated in the browser from a seeded formula, and the panel says it's a replay. The voice waveform is synthetic.
+- **PaperScores.** The gauge's arc is a real scorecard's overall score, 30 (computed by PaperScores' own scoring code from the sub-scores), and the six rings inside are those sub-scores. The paper, a narrative review that scores low on methods by design, isn't named, and the page the pen underlines is a schematic.
+- **Origins and History** are diagrams. Their labels carry the facts: the pull request's number and diff size, the steps of my [history](/history/).
+
+## The page without it
+
+The thread is an enhancement, and `boot.ts` decides whether it runs:
+
+```ts
+// src/thread/boot.ts
+const params = new URLSearchParams(location.search);
+const forced = params.has("thread") || params.has("debug");
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
+if (params.has("nothread") || !("WebGL2RenderingContext" in window)) return;
+if (!forced && (reduced || saveData)) return;
+```
+
+With reduced motion, Save-Data or no WebGL2, the thread's code is never downloaded. Otherwise it's imported after the `load` event and an idle callback, so the headline paints first, and the context is requested with `failIfMajorPerformanceCaveat`, so a browser that would render in software doesn't start it. Either way the page is the same HTML: stacked sections with every heading, paragraph, label and link, and the screenshot as a plain image. The canvas is `aria-hidden`. If the GPU drops the context, the thread removes itself and the page returns to that layout.
+
+## What it costs
+
+At the time of writing, the boot script is 1.2 KB gzipped. The thread is one lazily loaded chunk, 72 KB raw and 27.4 KB with gzip -9; about 14 KB of the raw size is GLSL that still carries its comments. The Zenarios data is a separate 81 KB JSON file, 53.8 KB gzipped. Most of it is the fan, 55,000 bytes of 8-bit random walks, which don't compress well.
+
+Per frame on the high tier: one 128 KB texture upload, six draw calls for the scene (dust, fan, secondary lines, thread, sparks and the pen's nib), seven for the bloom and one to composite.
+
+Each station's project has its own page: [Zenarios](/work/zenarios/), [Signals](/work/signals/), [PaperScores](/work/paperscores/) and [Origins](/work/origins/).

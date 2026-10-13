@@ -1,0 +1,268 @@
+---
+title: "Wie der Thread funktioniert"
+description: "Eine Lichtlinie durch den 3D-Raum, gesteuert vom nativen Scrollen: der WebGL2-Renderer, die Kamera und die Daten hinter der Startseite von metz.uk."
+slug: "wie-der-thread-funktioniert"
+published: 2026-10-15
+draft: true
+---
+
+Die Startseite dieser Website ist eine einzige Linie. Sie schreibt meinen Namen über die Überschrift, dann zieht das Scrollen sie in den Raum, und an jeder Station zeichnet sie etwas aus einem meiner Projekte: eine Prognose, die in 1.000 Marktverläufe aufplatzt, eine Konstellation aus Subreddits, ein bewertetes Paper, einen Login-Ablauf und einen Git-Branch, eine Zeitleiste. Am Ende steigt die Kamera auf und zeigt den ganzen Weg.
+
+Das Ganze ist pures WebGL2 ohne Laufzeitabhängigkeiten: kein Three.js, keine Animations-Library. `src/thread/` umfasst knapp 3.800 Zeilen TypeScript und 400 Zeilen GLSL. Ich habe den Thread entworfen und die Umsetzung gesteuert, gebaut mit einem Agent-Workflow.
+
+## Zeit wird in Beats gezählt
+
+Alles hängt an einer Zahl, `t`, gemessen in Beats. Ein Beat ist eine Viewport-Höhe Scrollen:
+
+```ts
+// src/thread/beats.ts
+export const STATIONS: { id: StationId; beats: number }[] = [
+  { id: "intro", beats: 1 },
+  { id: "zenarios", beats: 3.8 },
+  { id: "signals", beats: 3.2 },
+  { id: "paperscores", beats: 2.6 },
+  { id: "origins", beats: 3.0 },
+  { id: "history", beats: 2.2 },
+  { id: "end", beats: 1.25 },
+];
+```
+
+Die Section jeder Station ist `calc(var(--beats) * 100svh)` hoch, die Scroll-Länge kommt also aus derselben Tabelle. Jedes andere Timing ist ein Cue, ein Start und ein Ende in Beats relativ zu einer Station: `at("zenarios", 1.42, 2.0)` ist der Moment, in dem der Fächer aufplatzt. Renderer, Kamera, Textpanels und Labels lesen alle dieselbe Cue-Tabelle in `timeline.ts`.
+
+Die Szene merkt sich zwischen zwei Frames nichts. `Scene.update(t)` baut jeden Punkt aus `t` neu, Rückwärtsscrollen heißt also nur: ein kleineres `t`. Nur weniges hängt an der Uhr statt am Scrollen: das Schreiben des Namens am Anfang, die Funken am Stift, ein leichtes Driften der Kamera und das Licht, das an der Linie entlangwandert.
+
+## Vom Scrollen zur Zeit: eine Feder
+
+Gescrollt wird nativ. `ScrollTimeline.read()` rechnet `scrollY` in eine Zielzeit um. Genau diese Zeit zu zeichnen sieht mit einem rastenden Mausrad schlecht aus, weil jede Raste ein Sprung ist. Deshalb folgt die gezeichnete Zeit dem Ziel über eine kritisch gedämpfte Feder:
+
+```ts
+// src/thread/scroll.ts
+// Critically damped spring (the classic "SmoothDamp").
+const omega = 2 / this.smooth;
+const x = omega * dt;
+const decay = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x);
+const change = this.value - this.target;
+const temp = (this.velocity + omega * change) * dt;
+this.velocity = (this.velocity - omega * temp) * decay;
+let next = this.target + (change + temp) * decay;
+// Never overshoot the scroll position.
+if (this.target - this.value > 0 === next > this.target) {
+  next = this.target;
+  this.velocity = 0;
+}
+this.value = next;
+return this.value;
+```
+
+Die Einschwingzeit hängt von der letzten Eingabe ab: 0,28 s nach einem Wheel-Event, 0,1 s nach einer Berührung, damit das Bild unter dem Finger bleibt, 0,22 s bei der Tastatur. Die Abfrage am Ende sorgt dafür, dass das Bild nie einen Moment zeigt, zu dem noch gar nicht gescrollt wurde.
+
+Ein Sprung über einen Kapitel-Link oder die gezogene Scrollbar würde durch jede Station dazwischen fliegen. Ab 1,5 Beats Abstand blendet das Bild deshalb in 0,16 s aus, die Zeit springt, und es blendet in 0,4 s wieder ein.
+
+## Eine Linie, ein festes Punktbudget
+
+Der Thread ist eine einzige Polylinie. Jede Figur hat ein Punktbudget (1.536 für den Namen, 512 für Zenarios, 768 für Signals und so weiter), jede Verbindung zwischen zwei Stationen bekommt 640: 7.936 Punkte bei voller Detailstufe, auf der niedrigsten die Hälfte. Die Stationen liegen auf einer absteigenden Spirale, verbunden durch kubische Bézierkurven.
+
+Jede Figur ist ein einziger Strich. Wo ein Stift absetzen würde, läuft der Pfad mit Intensität null weiter (das `w` jedes xyzw-Punkts) und erscheint als schwache Spur. `resample()` verteilt die Punkte einer Figur gleichmäßig über ihre Länge, wobei diese Spuren nur etwa ein Drittel zählen; so bekommen die sichtbaren Striche die meisten Punkte. Alle Keyframes einer Figur haben gleich viele Punkte, also wird Punkt i zu Punkt i:
+
+```ts
+// src/thread/scene.ts
+for (let i = 0; i < s.count; i++) {
+  const u = s.count > 1 ? i / (s.count - 1) : 0;
+  const x = stagger > 0 ? Math.min(Math.max((t - u * stagger) / (1 - stagger), 0), 1) : t;
+  const e = E.inOutCubic(x);
+  const o = i * 4;
+  const p = (s.start + i) * 4;
+  P[p] = from[o] + (to[o] - from[o]) * e;
+  P[p + 1] = from[o + 1] + (to[o + 1] - from[o + 1]) * e;
+  P[p + 2] = from[o + 2] + (to[o + 2] - from[o + 2]) * e;
+  // Faint pen travel turns into ink as the figure morphs.
+  P[p + 3] = brighten ? from[o + 3] + (1 - from[o + 3]) * e : from[o + 3] + (to[o + 3] - from[o + 3]) * e;
+}
+```
+
+Der Stagger verzögert jeden Punkt nach seiner Position entlang der Figur, der Morph wandert also von einem Ende zum anderen. So entsteht das Abspulen nach dem Namen: Die Buchstaben ziehen sich von links nach rechts zu einer straffen Linie auf der Grundlinie, während die Spuren zwischen ihnen zu Tinte werden. Origins faltet mit demselben Code einen Würfel erst zu einem Login-Weg auf und dann zu einem Git-Branch.
+
+Geplant war, im Vertex Shader zu morphen. Tatsächlich läuft es auf der CPU: Jeder Frame schreibt ein `Float32Array` neu und lädt es mit einem einzigen `texSubImage2D` hoch, 128 KB bei voller Detailstufe. Dafür bestimmt jede Station die Pose ihrer Figur in normalem TypeScript, und die CPU hat die Positionen, die sie ohnehin braucht: für die Funken an der Stiftspitze und für das Label, das mit dem Token durch Origins fährt.
+
+## Eine Linie, die leuchtet
+
+Der Thread hat keine Vertex Buffer. Er ist ein einziges `drawArrays(TRIANGLE_STRIP, 0, count * 2)` mit leerem VAO: Der Vertex Shader nimmt `gl_VertexID >> 1` als Punktindex, holt diesen Punkt und seine Nachbarn per `texelFetch` und setzt den Vertex auf eine Seite eines Ribbons im Screen Space.
+
+Alle Linien der Seite teilen sich den Ribbon-Code in `ribbon.glsl`. Sanfte Kurven bekommen eine Gehrung, scharfe Kehren folgen dem ausgehenden Segment, damit zurücklaufende Striche keine Lichtspitzen werfen. Die Breite hat eine Untergrenze von einem CSS-Pixel; was dünner wäre, wird stattdessen dunkler, so verblassen ferne Teile, statt zu flimmern. Und weil sich Licht addiert, würde eine Linie, die genau auf die Kamera zuläuft, weiß ausbrennen:
+
+```glsl
+// src/thread/gl/shaders/ribbon.glsl
+// A line seen end-on stacks hundreds of its segments onto the same pixels, and additive light
+// would pile up to solid white. Dim each point by how foreshortened it is on screen, so a line
+// keeps the same brightness per pixel however it's turned.
+float worldStep = length(pNext - pPrev) * 0.5;
+float expected = worldStep * uProjScale / c.w;
+float facing = expected > 1e-3 ? clamp(length(sn - sp) * 0.5 / expected, 0.0, 1.0) : 1.0;
+float foreshorten = clamp(facing * 1.4, 0.04, 1.0);
+```
+
+Der Fragment Shader arbeitet mit dem Abstand quer zum Ribbon: ein kantengeglätteter Kern, 60 % Richtung Weiß verschoben, dazu ein gaußförmiges Glühen in der Farbe der Station.
+
+```glsl
+// src/thread/gl/shaders/line.frag
+float d = abs(vDist);
+float core = 1.0 - smoothstep(vCore - 0.75, vCore + 0.75, d);
+float halo = exp(-(d * d) / (vSigma * vSigma));
+vec3 hot = mix(vColor.rgb, vec3(1.0), 0.6);
+vec3 c = (hot * core * uCoreGain + vColor.rgb * halo * uHaloGain) * vColor.a;
+outColor = vec4(c, 1.0);
+```
+
+Alles wird additiv in ein RGBA16F-Target gezeichnet (beim Start geprüft, sonst RGBA8). Ein Composite-Pass bildet das Ergebnis mit `1 - exp(-c)` ab, damit Überlagerungen weich sättigen statt abzuschneiden, und legt leichte Farbsäume, eine Vignette, Korn und ein Dithering gegen Banding darüber. Die hohe Stufe ergänzt einen Dual-Kawase-Bloom; die anderen kommen mit dem Glühen aus dem Linien-Shader aus.
+
+Der Shader des Threads kennt auch den Stift: Der Weg voraus ist nur eine schwache Führung, die Spitze glüht, die alte Spur wird dunkler.
+
+## 1.000 Zukünfte, ein Draw Call
+
+Bei Zenarios platzt die Prognose in 1.000 Marktverläufe auf und fällt dann auf den Median zusammen. Das ist ein einziger instanzierter Draw Call, eine Instanz pro Verlauf, auf der hohen Stufe mit je 96 Segmenten. Die Werte liegen in einer R32F-Textur, eine Zeile pro Verlauf und eine Spalte pro Jahr, dazu je eine Zeile für Prognose und Median. Der Vertex Shader legt einen Catmull-Rom-Spline hindurch:
+
+```glsl
+// src/thread/gl/shaders/fan.vert
+vec3 linePoint(float u, float r) {
+  float x = u * float(uYears - 1);
+  float v = mix(valueAt(uForecastRow, x), valueAt(gl_InstanceID, x), r);
+  v = mix(v, valueAt(uMedianRow, x), uCollapse);
+  float z = (aPct - 0.5) * uSpread * r * (1.0 - uCollapse);
+  return (uModel * vec4((u - 0.5) * uSize.x, (v - 0.5) * uSize.y, z, 1.0)).xyz;
+}
+```
+
+`r` ist das Aufblenden jedes einzelnen Verlaufs, der Ausbruch wächst also aus der Prognose heraus. `aPct`, wie gut ein Verlauf endet, bestimmt Tiefe und Farbe, von Korallrot über warmes Weiß bis Grün. Bei Alpha 0,03 pro Linie leuchtet der Fächer durch additives Blending dort am hellsten, wo sich die Verläufe einig sind.
+
+Umsonst ist das nicht: `linePoint` läuft für die Nachbarn im Ribbon dreimal pro Vertex, bis zu 36 Texel-Fetches, und benachbarte Vertices rechnen dasselbe noch einmal. Die unteren Stufen zeichnen weniger und gröbere Linien.
+
+Auch 512 oder 256 Linien sollen ein faires Bild ergeben. Der Generator sortiert die Verläufe nach ihrem Endwert und speichert sie in bitumgekehrter Rangfolge. So deckt jeder Anfang der Liste die ganze Spannweite ab, statt nur die schlechtesten 256 zu enthalten:
+
+```js
+// scripts/gen/zenarios.mjs
+const bits = Math.ceil(Math.log2(trials.count));
+const order = [];
+for (let k = 0; k < 1 << bits; k++) {
+  let r = 0;
+  for (let b = 0; b < bits; b++) if (k & (1 << b)) r |= 1 << (bits - 1 - b);
+  if (r < trials.count) order.push(r);
+}
+```
+
+Dieselbe Reihenfolge staffelt das Aufblenden, und das Alpha skaliert mit der Wurzel aus 1.000 geteilt durch die Linienzahl, damit ein kleinerer Fächer nicht leer wirkt.
+
+## Die Kamera
+
+Die Kamera setze ich nicht von Hand. Eine Station nennt ein Ziel, eine Blickrichtung, halbe Breite und Höhe ihrer Figur und das Rechteck des Bildschirms, das sie füllen soll: auf breiten Bildschirmen links vom Text, auf hohen darüber. `holdPose` berechnet den passenden Abstand:
+
+```ts
+// src/thread/stations/kit.ts
+const fov = fovDeg * DEG;
+const tan = Math.tan(fov / 2);
+const fw = (frame.x1 - frame.x0) / 2;
+const fh = (frame.y1 - frame.y0) / 2;
+const dist = Math.max(halfH / (tan * fh), halfW / (tan * aspect * fw));
+return {
+  pos: sub(target, scale(dir, dist)),
+  target,
+  fov,
+  shift: [(frame.x0 + frame.x1) / 2, (frame.y0 + frame.y1) / 2],
+};
+```
+
+`shift` verschiebt die Bildachse, statt die Kamera zu drehen. `perspective()` in `math.ts` schreibt den Wert in die dritte Spalte der Projektionsmatrix, eine Off-Axis-Projektion: Die Figur wird frontal gesehen, liegt aber in ihrem Rechteck. Beim Intro ist das Rechteck das echte `h1`, vermessen mit einer DOM-Range, der Versalhöhe der Schrift und einem Element ohne Größe auf der Grundlinie. So landet der gezeichnete Name genau auf dem gesetzten, bevor die Überschrift ausblendet.
+
+Zwischen den Haltepunkten ergänzt `CameraRig` Verfolgerposen entlang jeder Verbindung, hinter und über dem Stift. Alle Keys verbindet ein kubischer Hermite-Spline in Timeline-Zeit über neun Zahlen: Position, Ziel, Bildwinkel und Lens Shift. Die Tangenten kommen von den benachbarten Keys, Haltepunkte haben Geschwindigkeit null, also gleitet die Kamera ohne Knick in jede Figur hinein und wieder heraus. Am Ende steigt sie über die Spirale, und der Nebel weicht zurück, bis der ganze Weg zu sehen ist.
+
+## Das HTML im Takt halten
+
+Aller Text ist HTML und liegt, solange der Thread läuft, fixiert über dem Canvas. `DomSync` in `sync.ts` schreibt nur Styles und liest pro Frame kein Layout.
+
+- Panels tragen ein `data-cue`. Ihre Sichtbarkeit landet in einer einzigen CSS Custom Property, `--v`, und das nur, wenn sie sich ändert; das Staffeln der Wörter erledigt das CSS.
+- Labels tragen ein `data-anchor`, einen 3D-Punkt auf einer Figur. Er wird mit derselben Matrix wie im Renderer projiziert und per `translate3d` gesetzt.
+- Der Screenshot der App bei Zenarios ist ein `img`, das per `matrix3d` in die Szene gelegt wird: Element-Pixel in Weltkoordinaten, dann die Kamera, dann Clip Space in CSS-Pixel.
+
+```ts
+// src/thread/sync.ts
+// Element px → world.
+const model = mat4();
+model.set([
+  right[0] * sx, right[1] * sx, right[2] * sx, 0,
+  -up[0] * sy, -up[1] * sy, -up[2] * sy, 0,
+  normal[0] * 0.001, normal[1] * 0.001, normal[2] * 0.001, 0,
+  corner[0], corner[1], corner[2], 1,
+]);
+// Clip space → CSS px (y down).
+const s = this.screen;
+s.set([width / 2, 0, 0, 0, 0, -height / 2, 0, 0, 0, 0, 1, 0, width / 2, height / 2, 0, 1]);
+multiply(this.tmp, viewProj, model);
+multiply(this.m, s, this.tmp);
+return `matrix3d(${Array.from(this.m, (n) => n.toFixed(6)).join(",")})`;
+```
+
+`matrix3d` behält die homogene Zeile, die Perspektivdivision übernimmt also der Browser. Der Screenshot sitzt in der Szene und bleibt ein echtes Bild mit Alt-Text.
+
+## Qualitätsstufen und ein Watchdog
+
+Die Stufe ist beim Start eine Schätzung aus dem GPU-Namen und der Art des Zeigegeräts:
+
+```ts
+// src/thread/quality.ts
+export const TIERS: Record<Tier, Omit<Quality, "tier">> = {
+  high: { dprCap: 2, fan: 1000, fanSegs: 96, bloom: true, detail: 1, dust: 1100 },
+  mid: { dprCap: 2, fan: 512, fanSegs: 72, bloom: false, detail: 1, dust: 650 },
+  low: { dprCap: 1.5, fan: 256, fanSegs: 48, bloom: false, detail: 0.5, dust: 300 },
+};
+```
+
+Software-Renderer bekommen „low“. Touch-Geräte bekommen „mid“ ab sechs Kernen, sonst „low“. GPUs von Apple, NVIDIA, AMD (Radeon) und Intel (Arc) bekommen „high“, alles andere „mid“.
+
+Danach entscheidet die Frame-Zeit. `FrameMonitor` hält die letzten 120 Frame-Zeiten. Liegt das 90. Perzentil über 18 ms, verpasst also mehr als jeder zehnte Frame eine 60-Hz-Deadline, sinkt die Render-Skalierung von 1 auf 0,85 und dann auf 0,7; danach fällt die Stufe, und die Skalierung beginnt wieder bei 1. Nach jedem Schritt gibt es eine Pause, und nichts geht wieder nach oben, damit das Bild nicht zwischen scharf und weich pumpt. Zwei Grenzen: Ein Stufenwechsel baut die Punktbudgets nicht neu, und die Leiter endet bei „low“ mit 0,7. Ein Gerät, das selbst dann nicht mitkommt, behält den Thread trotzdem.
+
+## Woher die Daten kommen
+
+Die Zenarios-Figur ist echte Engine-Ausgabe. `scripts/gen/zenarios.mjs` bündelt mit esbuild eine Einstiegsdatei mit dem Domain- und Engine-Code der App und bricht ab, sobald React, React Native oder Expo im Bundle landen: Die Engine muss rein bleiben, um in Node zu laufen. Das Skript baut den eingebauten Beispielhaushalt der App, rechnet ihn mit fester Uhr Monat für Monat durch und startet die Monte-Carlo-Simulation ohne vorzeitigen Abbruch:
+
+```ts
+// scripts/gen/zenarios-entry.ts
+const seed = seedFromString(`example:${EXAMPLE}`);
+const run = createMonteCarloRun(snapshot, getDefaultMetricRegistry(), {
+  seed,
+  maxTrials: 1000,
+  minTrials: 1000,
+  targetStandardErrorBp: 0,
+});
+while (!run.finished()) run.step(100);
+```
+
+Mit den Standardwerten darf ein Lauf schon nach 300 Durchläufen enden, sobald der Standardfehler seiner Erfolgsquote unter 120 Basispunkten liegt, und „1.000 Zukünfte“ wäre falsch. Das Ergebnis, 645 Monate Prognose und 1.000 Verläufe mit je 55 Jahresendwerten, wird per `asinh` in Anzeigeeinheiten gestaucht, die Verläufe werden auf 8 Bit quantisiert, und alles wird mit seiner Herkunft eingecheckt: Engine-Version, Input-Hash, Seed und Commit der App. Die Website baut ohne die App.
+
+Die anderen Stationen, genau genommen:
+
+- **Signals.** Die 37 Subreddits und ihre Gruppen sind die echte Konfiguration von WGRA, dem Trend-Analyzer hinter Signals. Der Trend und sein Weg von den Vorreitern zu den Nachzüglern sind ein Replay mit eingepflanztem Trend, so wie das Lead-Lag-Modell getestet wird. Die Kurve selbst entsteht im Browser aus einer Formel mit festem Seed, und das Panel weist sie als Replay aus. Die Wellenform der Stimme ist synthetisch.
+- **PaperScores.** Der Bogen der Anzeige ist der Gesamtscore einer echten Bewertung, 30 (berechnet vom Scoring-Code von PaperScores aus den Teilscores), die sechs Ringe darin sind diese Teilscores. Das Paper, ein narratives Review, das bei der Methodik konstruktionsbedingt schlecht abschneidet, bleibt ungenannt, und die Seite, die der Stift unterstreicht, ist eine Skizze.
+- **Origins und History** sind Diagramme. Die Fakten stehen in ihren Labels: Nummer und Diff-Größe des Pull Requests, die Stationen aus meinem [Werdegang](/de/werdegang/).
+
+## Die Seite ohne Thread
+
+Der Thread ist eine Erweiterung, und `boot.ts` entscheidet, ob er überhaupt läuft:
+
+```ts
+// src/thread/boot.ts
+const params = new URLSearchParams(location.search);
+const forced = params.has("thread") || params.has("debug");
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
+if (params.has("nothread") || !("WebGL2RenderingContext" in window)) return;
+if (!forced && (reduced || saveData)) return;
+```
+
+Bei reduzierter Bewegung, Save-Data oder ohne WebGL2 wird der Code des Threads gar nicht erst geladen. Sonst wird er nach dem `load`-Event und einem Idle-Callback importiert, damit zuerst die Überschrift steht. Den Kontext fordert er mit `failIfMajorPerformanceCaveat` an; müsste der Browser in Software rendern, startet der Thread also nicht. In jedem Fall ist die Seite dasselbe HTML: untereinanderliegende Abschnitte mit jeder Überschrift, jedem Absatz, jedem Label und Link, der Screenshot als normales Bild. Das Canvas ist `aria-hidden`. Verliert die GPU den Kontext, entfernt sich der Thread, und die Seite kehrt zu diesem Layout zurück.
+
+## Was es kostet
+
+Stand heute ist das Boot-Skript mit gzip 1,2 KB groß. Der Thread ist ein einziger, nachgeladener Chunk: 72 KB roh, 27,4 KB mit gzip -9; rund 14 KB davon sind GLSL, das noch seine Kommentare trägt. Die Zenarios-Daten sind eine eigene JSON-Datei mit 81 KB, mit gzip 53,8 KB. Den Großteil macht der Fächer aus, 55.000 Byte 8-Bit-Zufallspfade, und die lassen sich schlecht komprimieren.
+
+Pro Frame auf der hohen Stufe: ein Textur-Upload von 128 KB, sechs Draw Calls für die Szene (Staub, Fächer, Nebenlinien, Thread, Funken und die Stiftspitze), sieben für den Bloom und einer fürs Compositing.
+
+Jedes Projekt hinter den Stationen hat eine eigene Seite: [Zenarios](/de/projekte/zenarios/), [Signals](/de/projekte/signals/), [PaperScores](/de/projekte/paperscores/) und [Origins](/de/projekte/origins/).
