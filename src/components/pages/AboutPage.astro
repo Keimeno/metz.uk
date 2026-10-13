@@ -24,7 +24,7 @@ const copy = {
       "Constantin Metz is a self-taught software engineer from Munich. He builds products end to end, from simulation engines to interfaces and launch films.",
     h1: "About",
     lead: "Constantin Metz is a self-taught software engineer from Munich. He builds products end to end: the engine, the interface, the infrastructure underneath, and the film that launches them.",
-    portraitAlt: "Constantin Metz",
+    portraitAlt: "Portrait of Constantin Metz in a dark coat, in front of a Roman stone arch",
     facts: [
       { k: "Based in", v: "Munich, Germany" },
       { k: "Also known as", v: "Keimeno (on GitHub and GitLab)" },
@@ -40,7 +40,7 @@ const copy = {
       "Constantin Metz ist autodidaktischer Softwareentwickler aus München. Er baut Produkte von Anfang bis Ende, von Simulations-Engines bis zu Oberflächen und Launch-Filmen.",
     h1: "Über mich",
     lead: "Constantin Metz ist ein autodidaktischer Softwareentwickler aus München. Er baut Produkte von Anfang bis Ende: die Engine, die Oberfläche, die Infrastruktur darunter und den Film, mit dem sie starten.",
-    portraitAlt: "Constantin Metz",
+    portraitAlt: "Porträt von Constantin Metz im dunklen Mantel vor einem römischen Steinbogen",
     facts: [
       { k: "Lebt in", v: "München" },
       { k: "Auch bekannt als", v: "Keimeno (auf GitHub und GitLab)" },
@@ -76,6 +76,8 @@ const copy = {
       {hasPortrait ? (
         <img
           src={PERSON.portrait.src}
+          srcset={`${PERSON.portrait.small} 640w, ${PERSON.portrait.src} ${PERSON.portrait.width}w`}
+          sizes="(max-width: 900px) min(360px, 100vw), 40vw"
           width={PERSON.portrait.width}
           height={PERSON.portrait.height}
           alt={copy.portraitAlt}

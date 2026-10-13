@@ -4,6 +4,9 @@ dist/
 .astro/
 .cache/
 
+# private source material: the portrait original carries GPS EXIF and must never be committed
+data/sources/portrait/
+
 # env and secrets
 .env
 .env.*

@@ -29,10 +29,15 @@ export const PERSON = {
   ],
   knowsLanguage: ["de", "en"],
   /**
-   * The portrait. Drop the photo at `public/constantin-metz.jpg` (portrait orientation, about 4:5)
-   * and set the size here; until the file exists, the pages show a placeholder.
+   * The portrait, made from `data/sources/portrait/` by `node scripts/gen/portrait.mjs` (4:5, metadata
+   * stripped). `src` is the stable URL search engines and structured data point at.
    */
-  portrait: { src: "/constantin-metz.jpg", width: 1200, height: 1500 },
+  portrait: {
+    src: "/constantin-metz.jpg",
+    small: "/media/constantin-metz-640.jpg",
+    width: 1200,
+    height: 1500,
+  },
   profiles: [
     { id: "github", label: "GitHub", handle: "Keimeno", href: "https://github.com/Keimeno" },
     {
