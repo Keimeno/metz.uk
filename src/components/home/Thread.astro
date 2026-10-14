@@ -410,6 +410,16 @@ const appStore = "https://apps.apple.com/app/zenarios/id6819013653";
   :global(.thread-on) .station__layer :is(a, button) {
     pointer-events: auto;
   }
+  /* From the first paint until the thread has placed the text once, only the intro shows: the
+     panels' words aren't split for their reveals yet and would all show at once. */
+  :global(.thread-on:not(.thread-ready)) .station:not(.station--intro) .station__layer {
+    visibility: hidden;
+  }
+  /* The name scrolls with its section until then, so a reload further down doesn't show it. At
+     the top, sticky and fixed put it in the same place. */
+  :global(.thread-on:not(.thread-ready)) .station--intro .station__layer {
+    position: sticky;
+  }
 
   /* Intro: the name, centred. The thread writes over it and it fades into light. */
   .intro {

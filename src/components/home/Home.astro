@@ -24,6 +24,21 @@ const alternates = alternatesOf("home");
   alternates={alternates}
   ogType="profile"
   ld={{ type: "ProfilePage", mainEntity: IDS.person }}>
+  {/* Decided before the first paint: will the thread run? If so, the page starts in the thread's
+       layout (its text hidden until the thread shows it), so nothing flashes or moves when it
+       starts, and a reload lands where the reader was. The thread's boot (src/thread/boot.ts)
+       falls back to the document layout if it can't start. */}
+  <script is:inline slot="head">
+    (function () {
+      var q = new URLSearchParams(location.search);
+      var forced = q.has("thread") || q.has("debug");
+      var saveData = navigator.connection && navigator.connection.saveData;
+      var reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (q.has("nothread") || !("WebGL2RenderingContext" in window)) return;
+      if (!forced && (reduced || saveData)) return;
+      document.documentElement.classList.add("thread-on");
+    })();
+  </script>
   <main id="main">
     <Thread locale={locale} alternates={alternates} />
     <div class="curtain" data-curtain>

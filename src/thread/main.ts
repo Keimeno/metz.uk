@@ -64,13 +64,15 @@ export async function startThread(): Promise<ThreadHandle | null> {
   const caps = createContext(canvas);
   if (!caps) return null;
 
-  // Until now the page has been an ordinary document. If the reader has already scrolled into
-  // it, remember where, so the thread starts at the same place instead of throwing them back.
-  const reading = window.scrollY > 4 ? readingPlace(sections) : null;
+  // Normally the page is in the thread's layout from the first paint (Home.astro). If it has been
+  // an ordinary document instead and the reader has scrolled into it, remember where, so the
+  // thread starts at the same place instead of throwing them back.
+  const root = document.documentElement;
+  const reading = !root.classList.contains("thread-on") && window.scrollY > 4 ? readingPlace(sections) : null;
 
   // Switch the page into its thread layout first, so every measurement below is final.
   document.body.prepend(canvas);
-  document.documentElement.classList.add("thread-on");
+  root.classList.add("thread-on");
 
   let q = quality(detectTier(caps.renderer));
   const dataReady = loadZenarios();
@@ -202,8 +204,9 @@ export async function startThread(): Promise<ThreadHandle | null> {
 
   // The opening write-on runs on the clock; scrolling early hurries it along. Once the name is
   // written, a glint runs along it.
+  // Starting further down (a reload restores the scroll position), the name is already written.
   const writeStart = performance.now() + WRITE_DELAY;
-  let write = freeze || fixedT !== null || hold !== null ? 1 : 0;
+  let write = freeze || fixedT !== null || hold !== null || timeline.value > 0.3 ? 1 : 0;
   let glintStart = -1;
   let running = true;
   let raf = 0;
@@ -275,6 +278,8 @@ export async function startThread(): Promise<ThreadHandle | null> {
     });
     sync.update(t, now, viewProj, cssW, cssH);
     chrome.update(t);
+    // The text is hidden until the timeline has placed it once (Thread.astro).
+    if (frame === 1) root.classList.add("thread-ready");
 
     monitor.push(dtMs);
     if (monitor.struggling()) {
@@ -321,7 +326,7 @@ export async function startThread(): Promise<ThreadHandle | null> {
     window.removeEventListener("resize", onResize);
     window.removeEventListener("pointermove", onPointer);
     document.removeEventListener("visibilitychange", onVisibility);
-    document.documentElement.classList.remove("thread-on");
+    root.classList.remove("thread-on", "thread-ready");
     nameEl.style.opacity = "";
     canvas.remove();
     debug?.dispose();
