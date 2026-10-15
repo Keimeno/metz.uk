@@ -1,0 +1,17 @@
+// Cloudflare Workers, static assets only: dist/ as built by `npm run build`. Nothing here deploys
+// by itself; `npx wrangler deploy` (or Workers Builds on the repo) does.
+{
+  "name": "metz-uk",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    // A miss gets the nearest 404.html with status 404: dist/de/404.html under /de/, else dist/404.html.
+    "not_found_handling": "404-page",
+    // /work → 308 to /work/, matching `trailingSlash: "always"` in astro.config.mjs.
+    "html_handling": "auto-trailing-slash",
+  },
+  // metz.uk is attached as a custom domain in the dashboard (see the DNS runbook in
+  // PRODUCTION-READINESS.md, section 9); www → apex and HTTP → HTTPS are zone settings.
+  "workers_dev": true,
+  "preview_urls": true,
+}

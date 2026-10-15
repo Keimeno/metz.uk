@@ -2,6 +2,7 @@
 import mdx from "@astrojs/mdx";
 import { defineConfig } from "astro/config";
 
+import postBuild from "./scripts/build/post-build.mjs";
 import { SITE_URL } from "./src/site.mjs";
 
 export default defineConfig({
@@ -11,5 +12,5 @@ export default defineConfig({
   devToolbar: { enabled: false },
   // A few KB of CSS per page, inline: no render-blocking request before the first paint.
   build: { inlineStylesheets: "always" },
-  integrations: [mdx()],
+  integrations: [mdx(), postBuild()],
 });
