@@ -5,6 +5,11 @@
 // - labels follow points of the figures,
 // - planes (the app screenshot) are mapped into the 3D scene with a CSS matrix3d.
 // Only writes styles, never reads layout per frame.
+//
+// Everything stays readable while it waits for its cue: an element outside its cue gets
+// `data-off` (opacity 0, links unclickable), never `visibility: hidden`, so screen readers, the Tab
+// key and find-in-page reach all of it. Animated text (split words, decoding kickers, counters)
+// plays on an aria-hidden copy; the real text stays beside it, visually hidden.
 
 import { multiply, mat4, project, cross, normalize, type Mat4, type Vec3 } from "./math";
 import type { Plane } from "./stations/kit";
@@ -34,6 +39,8 @@ interface PlaneEl {
   v: number;
   w: number;
   h: number;
+  /** Its lazy image has been asked to load. */
+  primed: boolean;
 }
 
 interface CounterEl {
@@ -41,20 +48,45 @@ interface CounterEl {
   cue: keyof typeof CUES;
   to: number;
   shown: string;
+  /** The server-rendered text, which the counter ends on. */
+  text: string;
 }
 
 const isPanel = (id: string): id is PanelId => id in PANELS;
 const GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/+#";
 const SCRAMBLE_MS = 700;
+/** How long before its cue a plane's image starts loading, in beats (viewport heights). */
+const PRIME_BEATS = 1.5;
 /** Counters format like the server-rendered text: "1,000" in English, "1.000" in German. */
 const fmt = new Intl.NumberFormat(document.documentElement.lang || "en");
 
-/** Wraps each word of `el` in spans the CSS can stagger, keeping the text readable as-is. */
+/**
+ * Splits `el`'s text in two: the real text, visually hidden, for assistive technology and
+ * find-in-page; and an aria-hidden copy that the animations may split, scramble or count up.
+ * Returns the copy.
+ */
+function twin(el: HTMLElement): HTMLElement {
+  const existing = el.querySelector<HTMLElement>(":scope > [data-copy]");
+  if (existing) return existing;
+  const text = (el.textContent ?? "").replace(/\s+/g, " ").trim();
+  const real = document.createElement("span");
+  real.className = "visually-hidden";
+  real.textContent = text;
+  const copy = document.createElement("span");
+  copy.setAttribute("aria-hidden", "true");
+  copy.dataset.copy = "";
+  copy.textContent = text;
+  el.replaceChildren(real, copy);
+  return copy;
+}
+
+/** Wraps each word of `el` in spans the CSS can stagger (on its aria-hidden copy). */
 function splitWords(el: HTMLElement) {
   if (el.dataset.split) return;
   el.dataset.split = "1";
-  const words = (el.textContent ?? "").trim().split(/\s+/);
-  el.textContent = "";
+  const copy = twin(el);
+  const words = (copy.textContent ?? "").split(" ");
+  copy.textContent = "";
   words.forEach((word, i) => {
     const outer = document.createElement("span");
     outer.className = "w";
@@ -62,9 +94,12 @@ function splitWords(el: HTMLElement) {
     inner.textContent = word;
     inner.style.setProperty("--i", String(i));
     outer.append(inner);
-    el.append(outer, i < words.length - 1 ? " " : "");
+    copy.append(outer, i < words.length - 1 ? " " : "");
   });
 }
+
+/** Marks an element as outside its cue: invisible and unclickable, but still in the page. */
+const setOff = (el: HTMLElement, off: boolean) => el.toggleAttribute("data-off", off);
 
 export class DomSync {
   private panels: PanelEl[] = [];
@@ -90,22 +125,74 @@ export class DomSync {
         el.querySelectorAll<HTMLElement>("[data-words]").forEach(splitWords);
         this.anchors.push({ el, id: el.dataset.anchor, cue: id, x: NaN, y: NaN, v: -1, left: false });
       } else if (el.dataset.plane) {
-        this.planes.push({ el, id: el.dataset.plane, cue: id, v: -1, w: 1, h: 1 });
+        this.planes.push({ el, id: el.dataset.plane, cue: id, v: -1, w: 1, h: 1, primed: false });
       } else {
         el.querySelectorAll<HTMLElement>("[data-words]").forEach(splitWords);
-        const scramble = Array.from(el.querySelectorAll<HTMLElement>("[data-scramble]")).map((s) => ({
-          el: s,
-          text: s.textContent ?? "",
-          start: -1,
-        }));
+        const scramble = Array.from(el.querySelectorAll<HTMLElement>("[data-scramble]")).map((s) => {
+          const copy = twin(s);
+          return { el: copy, text: copy.textContent ?? "", start: -1 };
+        });
         this.panels.push({ el, id, v: -1, scramble });
       }
     });
     root.querySelectorAll<HTMLElement>("[data-count]").forEach((el) => {
       const c = el.dataset.count as keyof typeof CUES;
-      if (c in CUES) this.counters.push({ el, cue: c, to: Number(el.dataset.countTo) || 0, shown: "" });
+      if (!(c in CUES)) return;
+      const copy = twin(el);
+      const text = copy.textContent ?? "";
+      this.counters.push({ el: copy, cue: c, to: Number(el.dataset.countTo) || 0, shown: "", text });
     });
     this.measure();
+  }
+
+  /** The cue of the panel or label that contains `node`, if any. */
+  cueOf(node: Node | null): PanelId | null {
+    const el = node instanceof Element ? node : node?.parentElement;
+    const id = el?.closest<HTMLElement>("[data-cue]")?.dataset.cue;
+    return id && isPanel(id) ? id : null;
+  }
+
+  /** The text panel most on screen right now (to find it again in the document version). */
+  mostVisible(): HTMLElement | null {
+    let best: PanelEl | null = null;
+    for (const p of this.panels) if (p.v > 0 && (!best || p.v > best.v)) best = p;
+    return best?.el ?? null;
+  }
+
+  /** True while a kicker is still decoding (the loop must keep drawing). */
+  get busy() {
+    return this.panels.some((p) => p.scramble.some((s) => s.start >= 0));
+  }
+
+  /**
+   * Undoes everything written here, so the same markup reads as a document again: inline styles,
+   * `data-off`, the label sides, and the final text in every counter and kicker.
+   */
+  reset() {
+    for (const p of this.panels) {
+      p.el.style.removeProperty("--v");
+      setOff(p.el, false);
+      p.v = -1;
+      for (const s of p.scramble) {
+        s.el.textContent = s.text;
+        s.start = -1;
+      }
+    }
+    for (const c of this.counters) {
+      c.el.textContent = c.text;
+      c.shown = "";
+    }
+    for (const a of this.anchors) {
+      for (const prop of ["--v", "opacity", "transform"]) a.el.style.removeProperty(prop);
+      setOff(a.el, false);
+      a.el.classList.remove("label--left");
+      Object.assign(a, { v: -1, x: NaN, y: NaN, left: false });
+    }
+    for (const p of this.planes) {
+      for (const prop of ["--v", "transform"]) p.el.style.removeProperty(prop);
+      setOff(p.el, false);
+      p.v = -1;
+    }
   }
 
   /** Element sizes for the planes; call on resize. */
@@ -123,7 +210,7 @@ export class DomSync {
         if (p.v <= 0 && v > 0 && this.animate) for (const s of p.scramble) s.start = now;
         p.v = v;
         p.el.style.setProperty("--v", String(v));
-        p.el.style.visibility = v === 0 ? "hidden" : "visible";
+        setOff(p.el, v === 0);
       }
       for (const s of p.scramble) this.scramble(s, now);
     }
@@ -163,7 +250,7 @@ export class DomSync {
         a.v = v;
         a.el.style.opacity = String(Math.min(1, v * 1.6));
         a.el.style.setProperty("--v", String(v));
-        a.el.style.visibility = v === 0 ? "hidden" : "visible";
+        setOff(a.el, v === 0);
       }
     }
 
@@ -171,12 +258,18 @@ export class DomSync {
     for (const p of this.planes) {
       const def = defs[p.id];
       if (!def) continue;
+      // A plane waits off screen (Thread.astro), so its lazy image doesn't load with the page;
+      // it starts loading a little before its cue.
+      if (!p.primed && t > PANELS[p.cue][0] - PRIME_BEATS) {
+        p.primed = true;
+        p.el.querySelectorAll("img").forEach((img) => (img.loading = "eager"));
+      }
       const centre = project(viewProj, def.center);
       const v = centre[3] > 1 ? Math.round(visibility(t, PANELS[p.cue]) * 100) / 100 : 0;
       if (v !== p.v) {
         p.v = v;
         p.el.style.setProperty("--v", String(v));
-        p.el.style.visibility = v === 0 ? "hidden" : "visible";
+        setOff(p.el, v === 0);
       }
       if (v > 0) p.el.style.transform = this.planeMatrix(def, p.w, p.h, viewProj, width, height);
     }

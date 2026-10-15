@@ -11,6 +11,7 @@ export class Chrome {
   private active = "";
   private markV = -1;
   private p = -1;
+  private listeners = new AbortController();
 
   constructor(
     private total: number,
@@ -22,15 +23,32 @@ export class Chrome {
     for (const el of this.chapters) {
       const station = CHAPTERS.find((c) => c.id === el.dataset.chapter)?.station;
       if (!station || !(el instanceof HTMLAnchorElement)) continue;
-      el.addEventListener("click", (e) => {
-        e.preventDefault();
-        this.scrollTo(stationStart(station) + 0.62);
-      });
+      el.addEventListener(
+        "click",
+        (e) => {
+          e.preventDefault();
+          this.scrollTo(stationStart(station) + 0.62);
+        },
+        { signal: this.listeners.signal }
+      );
     }
-    this.mark?.addEventListener("click", (e) => {
-      e.preventDefault();
-      this.scrollTo(0);
-    });
+    this.mark?.addEventListener(
+      "click",
+      (e) => {
+        e.preventDefault();
+        this.scrollTo(0);
+      },
+      { signal: this.listeners.signal }
+    );
+  }
+
+  /** Lets go of the header when the thread stops: plain anchor links and no inline styles. */
+  dispose() {
+    this.listeners.abort();
+    this.mark?.style.removeProperty("opacity");
+    this.mark?.style.removeProperty("transform");
+    this.progress?.style.removeProperty("--p");
+    for (const el of this.chapters) el.removeAttribute("aria-current");
   }
 
   update(t: number) {

@@ -1,5 +1,7 @@
 // The thread, put together: canvas, scroll timeline, camera, renderer, sparks, DOM sync and the
-// frame-time watchdog, in one loop that only runs while the page is visible.
+// frame-time watchdog, in one loop that only runs while there is something to see: it stops while
+// the tab is hidden or the page below has slid over the canvas, and drops to a slow tick once
+// nothing has moved for a while (only the drift, the dust and the line's pulse are left).
 //
 // All sizes come from the canvas itself, which is fixed at the *large* viewport height (100lvh).
 // On phones that size never changes while the browser's toolbars slide in and out, so nothing
@@ -17,11 +19,14 @@ import { Sparks } from "./sparks";
 import { Scene } from "./scene";
 import { fanState } from "./stations/zenarios";
 import { DomSync } from "./sync";
-import { CUES, cue, stationStart, type StationId } from "./timeline";
+import { CUES, PANELS, cue, stationStart, type PanelId, type StationId } from "./timeline";
 
 const WRITE_DELAY = 350;
 const WRITE_DURATION = 2400;
 const GLINT_DURATION = 1500;
+/** After this long with nothing moving, the loop waits IDLE_FRAME_MS before each frame (about 20 fps). */
+const IDLE_MS = 1500;
+const IDLE_FRAME_MS = 34;
 
 export interface ThreadHandle {
   stop(): void;
@@ -135,6 +140,31 @@ export async function startThread(): Promise<ThreadHandle | null> {
     });
   const chrome = new Chrome(timeline.total, scrollToT);
 
+  // Keyboard and find-in-page: every panel is in the page all the time (sync.ts), so focus can
+  // land in one that isn't showing yet. Then the thread scrolls to it, the way a document would.
+  const showCue = (id: PanelId | null) => {
+    if (!id) return;
+    const [a, b] = PANELS[id];
+    const settled = a + 0.14;
+    if (timeline.target >= settled && timeline.target <= b - 0.14) return;
+    scrollToT(Math.min((a + b) / 2, settled + 0.6, timeline.total - 0.01));
+  };
+  const onFocusIn = (e: FocusEvent) => showCue(sync.cueOf(e.target as Node));
+  document.addEventListener("focusin", onFocusIn);
+  // Find-in-page leaves its match selected (Chrome and Safari when the bar closes, Firefox as it
+  // goes); a selection inside one panel brings that panel up. Select-all spans many and is ignored.
+  let selectionFrame = 0;
+  const onSelection = () => {
+    cancelAnimationFrame(selectionFrame);
+    selectionFrame = requestAnimationFrame(() => {
+      const sel = document.getSelection();
+      if (!sel || sel.isCollapsed) return;
+      const id = sync.cueOf(sel.anchorNode);
+      if (id && id === sync.cueOf(sel.focusNode)) showCue(id);
+    });
+  };
+  document.addEventListener("selectionchange", onSelection);
+
   const fixedT = params.get("t");
   const freeze = params.has("freeze");
   // Jump straight to a moment (for screenshots and tuning): scroll there, no glide or fade.
@@ -199,6 +229,7 @@ export async function startThread(): Promise<ThreadHandle | null> {
   const onResize = () => {
     cancelAnimationFrame(resizeFrame);
     resizeFrame = requestAnimationFrame(() => resize());
+    wake();
   };
   window.addEventListener("resize", onResize);
 
@@ -210,12 +241,38 @@ export async function startThread(): Promise<ThreadHandle | null> {
   let glintStart = -1;
   let running = true;
   let raf = 0;
+  let pending = false;
+  let idleTimer = 0;
   let last = performance.now();
+  let lastActive = last;
+  /** The next frame follows a pause, so its frame time says nothing about the device. */
+  let gap = false;
   let frame = 0;
 
-  const tick = (now: number) => {
-    if (!running) return;
+  const request = () => {
+    pending = true;
     raf = requestAnimationFrame(tick);
+  };
+  /** Something happened (a scroll, the pointer, focus): draw again at full rate, now. */
+  const wake = () => {
+    lastActive = performance.now();
+    if (!running || document.hidden || pending) return;
+    if (idleTimer) {
+      clearTimeout(idleTimer);
+      idleTimer = 0;
+    } else last = performance.now();
+    gap = true;
+    request();
+  };
+  const wakeOn = ["scroll", "wheel", "pointermove", "pointerdown", "touchstart", "keydown"] as const;
+  for (const type of wakeOn) window.addEventListener(type, wake, { passive: true });
+  // `thread-past` (Home.astro) can clear after the last scroll event: wake on it too.
+  const classes = new MutationObserver(wake);
+  classes.observe(root, { attributes: true, attributeFilter: ["class"] });
+
+  const tick = (now: number) => {
+    pending = false;
+    if (!running) return;
     const dtMs = Math.min(100, now - last);
     last = now;
     const dt = dtMs / 1000;
@@ -281,7 +338,22 @@ export async function startThread(): Promise<ThreadHandle | null> {
     // The text is hidden until the timeline has placed it once (Thread.astro).
     if (frame === 1) root.classList.add("thread-ready");
 
-    monitor.push(dtMs);
+    // Anything still moving keeps the loop at full rate.
+    const moving =
+      Math.abs(timeline.target - timeline.value) > 1e-4 ||
+      Math.abs(timeline.velocity) > 1e-3 ||
+      timeline.fade < 1 ||
+      (write < 1 && !freeze) ||
+      g < 1 ||
+      pointer.pull > 0.01 ||
+      Math.abs(pointer.x - pointer.sx) + Math.abs(pointer.y - pointer.sy) > 1e-3 ||
+      sparks.alive > 0 ||
+      sync.busy ||
+      debug !== null;
+    if (moving) lastActive = now;
+
+    if (gap) gap = false;
+    else monitor.push(dtMs);
     if (monitor.struggling()) {
       const i = FrameMonitor.SCALES.indexOf(renderScale);
       if (i < FrameMonitor.SCALES.length - 1) {
@@ -306,36 +378,75 @@ export async function startThread(): Promise<ThreadHandle | null> {
       renderer: caps.renderer,
       float: caps.floatTarget,
     });
+
+    // The page below has slid over the canvas: nothing to draw until the reader scrolls back.
+    if (root.classList.contains("thread-past") && debug === null) return;
+    if (now - lastActive > IDLE_MS) {
+      gap = true;
+      idleTimer = window.setTimeout(() => {
+        idleTimer = 0;
+        request();
+      }, IDLE_FRAME_MS);
+    } else request();
   };
 
   const onVisibility = () => {
     if (document.hidden) {
       cancelAnimationFrame(raf);
-    } else if (running) {
-      last = performance.now();
-      raf = requestAnimationFrame(tick);
-    }
+      clearTimeout(idleTimer);
+      pending = false;
+      idleTimer = 0;
+    } else wake();
   };
   document.addEventListener("visibilitychange", onVisibility);
 
+  /**
+   * Ends the thread and leaves the page as the document version, with the reader on the same
+   * text: the panel they were looking at, or the same spot in the page below.
+   */
   const stop = () => {
+    if (!running) return;
     running = false;
     cancelAnimationFrame(raf);
+    clearTimeout(idleTimer);
+    cancelAnimationFrame(selectionFrame);
+
+    const t = timeline.value;
+    const panel = sync.mostVisible();
+    const curtain = document.querySelector<HTMLElement>("[data-curtain]");
+    const below = curtain ? curtain.getBoundingClientRect().top : Infinity;
+
     ro.disconnect();
+    classes.disconnect();
     timeline.dispose();
     window.removeEventListener("resize", onResize);
     window.removeEventListener("pointermove", onPointer);
+    for (const type of wakeOn) window.removeEventListener(type, wake);
     document.removeEventListener("visibilitychange", onVisibility);
-    root.classList.remove("thread-on", "thread-ready");
+    document.removeEventListener("focusin", onFocusIn);
+    document.removeEventListener("selectionchange", onSelection);
+    root.classList.remove("thread-on", "thread-ready", "thread-past");
+    sync.reset();
+    chrome.dispose();
     nameEl.style.opacity = "";
     canvas.remove();
     debug?.dispose();
+
+    if (curtain && below < window.innerHeight) {
+      // Reading the page below the thread: keep it exactly where it was on screen.
+      window.scrollBy({ top: curtain.getBoundingClientRect().top - below, behavior: "instant" });
+    } else if (panel && t > 1) {
+      panel.scrollIntoView({ block: "start", behavior: "instant" });
+      window.scrollBy({ top: -Math.round(window.innerHeight * 0.12), behavior: "instant" });
+    } else {
+      window.scrollTo({ top: 0, behavior: "instant" });
+    }
   };
   canvas.addEventListener("webglcontextlost", (e) => {
     e.preventDefault();
     stop();
   });
 
-  raf = requestAnimationFrame(tick);
+  request();
   return { stop };
 }

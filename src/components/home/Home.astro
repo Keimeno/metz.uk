@@ -56,13 +56,17 @@ const alternates = alternatesOf("home");
   bootThread();
 
   // Once the page below the thread reaches the header, the header steps aside (it is fixed while
-  // the thread runs and would sit on top of the text).
+  // the thread runs and would sit on top of the text), and the thread stops drawing. Only while
+  // the thread runs: the document version has an ordinary header.
   const curtain = document.querySelector("[data-curtain]");
   if (curtain && "IntersectionObserver" in window) {
     const root = document.documentElement;
     new IntersectionObserver(
       ([entry]) =>
-        root.classList.toggle("thread-past", entry.boundingClientRect.top < innerHeight * 0.08),
+        root.classList.toggle(
+          "thread-past",
+          root.classList.contains("thread-on") && entry.boundingClientRect.top < innerHeight * 0.08
+        ),
       { rootMargin: "0px 0px -92% 0px", threshold: [0, 1] }
     ).observe(curtain);
   }

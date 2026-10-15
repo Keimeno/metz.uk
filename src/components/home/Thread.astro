@@ -418,9 +418,21 @@ const phoneSources = pictureSources(phoneSrc, 480);
     pointer-events: auto;
   }
   /* From the first paint until the thread has placed the text once, only the intro shows: the
-     panels' words aren't split for their reveals yet and would all show at once. */
+     panels' words aren't split for their reveals yet and would all show at once. Transparent, not
+     hidden, so screen readers have the text from the start. */
   :global(.thread-on:not(.thread-ready)) .station:not(.station--intro) .station__layer {
-    visibility: hidden;
+    opacity: 0;
+  }
+  :global(.thread-on:not(.thread-ready)) .station:not(.station--intro) .station__layer :is(a, button) {
+    pointer-events: none;
+  }
+  /* Outside its cue (sync.ts): invisible and not clickable, but still in the page for screen
+     readers, the Tab key and find-in-page. */
+  :global(.thread-on) .station__layer [data-off] {
+    opacity: 0 !important;
+  }
+  :global(.thread-on) .station__layer [data-off] :is(a, button) {
+    pointer-events: none;
   }
   /* The name scrolls with its section until then, so a reload further down doesn't show it. At
      the top, sticky and fixed put it in the same place. */
@@ -618,6 +630,8 @@ const phoneSources = pictureSources(phoneSrc, 480);
   .plane--phone {
     width: 240px;
   }
+  /* Until its cue the plane waits outside the clipped layer, so its lazy image doesn't load with
+     the page; sync.ts asks for it shortly before the cue and then maps the plane into the scene. */
   :global(.thread-on) .plane {
     --v: 0;
     position: absolute;
@@ -626,6 +640,7 @@ const phoneSources = pictureSources(phoneSrc, 480);
     width: 480px;
     margin: 0;
     transform-origin: 0 0;
+    transform: translate3d(-300vw, 0, 0);
     opacity: var(--v);
     will-change: transform, opacity;
   }
