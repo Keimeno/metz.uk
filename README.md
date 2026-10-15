@@ -11,9 +11,21 @@ Needs Node 22.12 or newer.
 npm install
 npm run dev       # http://localhost:4321
 npm run check     # type-check .astro and .ts files
-npm run build     # static site in dist/
-npm run verify    # checks dist/: hreflang, canonicals, one h1, links, content rules
+npm run build     # static site in dist/ (plus the CSP hashes in dist/_headers)
+npm run verify    # checks dist/, then the built site in headless Chrome (see below)
 ```
+
+`npm run verify` runs two scripts. `verify:dist` reads the files: hreflang, canonicals, one h1,
+links, content rules, SEO, no plain email, no GPS in images, a CSP covering every inline script,
+and font coverage. `verify:browser` loads every page in headless Chrome (Google Chrome, or
+`CHROME=/path`), served the way Cloudflare will serve it. It checks that no page is wider than a
+390 or 320 px phone, that the thread exposes the same headings as `?nothread`, find and Tab, and
+that a lost WebGL context leaves the full document.
+
+## Deploy
+
+Cloudflare Workers, static assets only: `wrangler.jsonc` serves `dist/`, `public/_headers` holds the
+security and cache headers. Nothing here deploys by itself.
 
 ## Languages
 
@@ -72,6 +84,13 @@ OUT=/tmp/shots BASE=http://localhost:4321/de/ node scripts/dev/cdp-shots.mjs 390
 - `data/sources/paperscores/scorecard.json`: a real, anonymised PaperScores scorecard.
 - `public/media/thread/*.webp`: stills of each station, rendered from the thread itself
   (`npm run gen:stills` with the dev server running). Used on the case studies and the work page.
+- `src/assets/fonts/`: Geist and Geist Mono cut down to the characters the site uses, from the
+  upstream variable fonts in `data/sources/fonts/` (OFL-1.1). After adding text with new
+  characters, `npm run verify` says so: `npm run build && node scripts/gen/fonts.mjs` (needs `uv`).
+- The favicon set (`npm run gen:icons`) and the Zenarios phone picture in AVIF and WebP
+  (`node scripts/gen/phone.mjs [source]`; a source 960 px or wider adds 2× files).
+- `data/sources/portrait/`: the portrait original. It carries GPS, so it is git-ignored; it never
+  ships (`node scripts/gen/portrait.mjs` makes the stripped copies).
 
 ## Still to drop in
 

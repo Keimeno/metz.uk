@@ -7,12 +7,20 @@
 // the size the page claims; titles fit in 65 characters and descriptions in 50–170 (errors on
 // indexable pages, warnings on drafts); llms.txt links only indexable pages.
 //
-// Usage: npm run build && node scripts/verify-dist.mjs
+// Privacy and security: the email address never appears in plain text in any file; no image
+// carries GPS or XMP metadata; dist/_headers has a CSP whose hashes cover every inline script, and
+// no page loads anything from another origin or uses inline event handlers. Internal links to pages
+// end with a slash (trailingSlash: "always").
+//
+// Usage: npm run build && node scripts/verify-dist.mjs (`npm run verify` also runs the browser checks)
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { extname, join, relative } from "node:path";
 
-const DIST = new URL("../dist/", import.meta.url).pathname;
+import { HASH_PLACEHOLDER, cspHash, inlineScripts } from "./lib/inline-scripts.mjs";
+import { visibleText } from "./lib/visible-text.mjs";
+
+const DIST = process.env.DIST ?? new URL("../dist/", import.meta.url).pathname;
 const SITE = "https://metz.uk";
 const HISTORY_PAGES = new Set(["/history/", "/de/werdegang/"]);
 const EMPLOYERS = /\b(adabay|DealerCenter|Appfire|Mercura|Hoffmann Eitle|Evolit|oliv newlab)\b/i;
@@ -23,16 +31,34 @@ const SHARED_IDS = new Set([`${SITE}/#person`, `${SITE}/#website`]);
 const TITLE_MAX = 65;
 const DESCRIPTION = [50, 170];
 const NEVER = /\b(One Window|Reefster|psandro|dbackup|loveydovey|seminararbeit)\b/i;
+/** His address in any spelling a scraper would match (Email.astro only ships it reversed). */
+const EMAIL = /constantin(@|%40|&#0*64;|&#x0*40;)metz\.uk/i;
+const TEXT_TYPES = new Set([
+  ".html",
+  ".xml",
+  ".txt",
+  ".json",
+  ".js",
+  ".mjs",
+  ".css",
+  ".svg",
+  ".webmanifest",
+  "",
+]);
+const IMAGE_TYPES = new Set([".jpg", ".jpeg", ".png", ".webp", ".avif", ".ico"]);
 
-const files = [];
+const all = [];
 const walk = (dir) => {
   for (const name of readdirSync(dir)) {
     const path = join(dir, name);
     if (statSync(path).isDirectory()) walk(path);
-    else if (name.endsWith(".html")) files.push(path);
+    else all.push(path);
   }
 };
 walk(DIST);
+const files = all.filter((f) => f.endsWith(".html"));
+/** The two 404 pages (one per language): no canonical, no alternates, not in the sitemap. */
+const is404 = (path) => /(^|\/)404$/.test(path);
 
 /** "/work/zenarios/" for dist/work/zenarios/index.html. */
 const urlPath = (file) =>
@@ -109,7 +135,7 @@ const fail = (path, msg) => problems.push(`${path}: ${msg}`);
 const warn = (path, msg) => warnings.push(`${path}: ${msg}`);
 
 for (const [path, p] of pages) {
-  if (path === "/404") continue;
+  if (is404(path)) continue;
   if (p.lang !== "en" && p.lang !== "de") fail(path, `lang="${p.lang}"`);
   if (p.h1 !== 1) fail(path, `${p.h1} <h1> elements`);
   if (p.canonical !== SITE + path) fail(path, `canonical is ${p.canonical}`);
@@ -179,7 +205,7 @@ function checkJsonLd(path, p) {
   for (const id of new Set(refs))
     if (!defined.has(id) && !SHARED_IDS.has(id))
       fail(path, `JSON-LD points at ${id}, which isn't defined`);
-  if (path === "/404") return;
+  if (is404(path)) return;
 
   const page = defined.get(`${SITE}${path}#webpage`);
   if (!page) fail(path, "JSON-LD has no node for the page itself");
@@ -225,7 +251,7 @@ function checkSocial(path, p) {
 
 // The sitemap: exactly the indexable pages, each with the alternates the page itself declares.
 const indexable = new Set(
-  [...pages].filter(([path, p]) => path !== "/404" && !p.noindex).map(([path]) => path)
+  [...pages].filter(([path, p]) => !is404(path) && !p.noindex).map(([path]) => path)
 );
 const sitemapFile = join(DIST, "sitemap.xml");
 let sitemapCount = 0;
@@ -284,6 +310,106 @@ else {
   if (NEVER.test(llms)) fail("llms.txt", `mentions "${llms.match(NEVER)[0]}"`);
 }
 
+// No plain email anywhere: pages, feeds, sitemap, llms.txt, scripts, styles, _headers.
+for (const file of all) {
+  if (!TEXT_TYPES.has(extname(file))) continue;
+  if (EMAIL.test(readFileSync(file, "utf8")))
+    fail(relative(DIST, file), "contains the email address in plain text");
+}
+
+// No location or editing metadata in any image (the portrait original carries GPS).
+for (const file of all) {
+  if (!IMAGE_TYPES.has(extname(file).toLowerCase())) continue;
+  const problem = imageMetadata(readFileSync(file));
+  if (problem) fail(relative(DIST, file), problem);
+}
+
+/** What personal metadata an image carries, or null. */
+function imageMetadata(b) {
+  for (const tiff of exifBlocks(b)) if (tiffHasGps(tiff)) return "carries GPS EXIF data";
+  if (b.includes("http://ns.adobe.com/xap/1.0/") || b.includes("<x:xmpmeta"))
+    return "carries XMP metadata";
+  return null;
+}
+/** The TIFF structure of every EXIF block: JPEG APP1 and AVIF ("Exif\0\0"), PNG eXIf, WebP EXIF. */
+function exifBlocks(b) {
+  const out = [];
+  for (let i = b.indexOf("Exif\0\0"); i >= 0; i = b.indexOf("Exif\0\0", i + 6))
+    out.push(b.subarray(i + 6));
+  const png = b.indexOf("eXIf");
+  if (png >= 4) out.push(b.subarray(png + 4, png + 4 + b.readUInt32BE(png - 4)));
+  const webp = b.indexOf("EXIF");
+  if (webp >= 0) out.push(b.subarray(webp + 8));
+  return out;
+}
+/** Whether IFD0 of a TIFF structure points to a GPS IFD (tag 0x8825). */
+function tiffHasGps(t) {
+  const order = t.toString("latin1", 0, 2);
+  if (t.length < 8 || (order !== "II" && order !== "MM")) return false;
+  const le = order === "II";
+  const u16 = (o) => (le ? t.readUInt16LE(o) : t.readUInt16BE(o));
+  const ifd = le ? t.readUInt32LE(4) : t.readUInt32BE(4);
+  if (ifd + 2 > t.length) return false;
+  for (let k = 0, n = u16(ifd); k < n && ifd + 14 + k * 12 <= t.length; k++)
+    if (u16(ifd + 2 + k * 12) === 0x8825) return true;
+  return false;
+}
+
+// Security headers: one CSP whose script hashes cover every inline script on every page; no page
+// pulls anything from another origin or carries inline event handlers or javascript: URLs.
+const headersFile = join(DIST, "_headers");
+const headers = existsSync(headersFile) ? readFileSync(headersFile, "utf8") : "";
+const csp = headers.match(/^\s+Content-Security-Policy:\s*(.+)$/m)?.[1] ?? "";
+if (!csp) problems.push("_headers: missing, or no Content-Security-Policy");
+else if (csp.includes(HASH_PLACEHOLDER))
+  problems.push("_headers: the CSP still has the hash placeholder");
+for (const name of [
+  "Strict-Transport-Security",
+  "X-Content-Type-Options",
+  "Referrer-Policy",
+  "Permissions-Policy",
+])
+  if (!headers.includes(`${name}:`)) problems.push(`_headers: no ${name}`);
+const allowed = new Set(csp.match(/'sha256-[^']+'/g) ?? []);
+const RESOURCE =
+  /<(script|link|img|source|iframe|video|audio)\b[^>]*?\b(?:src|srcset|href)="(?:https?:)?\/\/([^"/]+)/gi;
+for (const [path, p] of pages) {
+  for (const script of inlineScripts(p.html))
+    if (!allowed.has(cspHash(script)))
+      fail(path, `inline script not allowed by the CSP: ${script.trim().slice(0, 50)}…`);
+  if (/<[a-z][^>]*\son[a-z]+\s*=/i.test(p.html)) fail(path, "inline event handler attribute");
+  if (/\bhref="javascript:/i.test(p.html)) fail(path, "javascript: URL");
+  for (const [, tag, host] of p.html.matchAll(RESOURCE))
+    if (host !== "metz.uk") fail(path, `<${tag}> loads from ${host}`);
+  for (const href of p.hrefs) {
+    const clean = href.split(/[?#]/)[0];
+    if (clean && !clean.endsWith("/") && !extname(clean))
+      fail(path, `link without a trailing slash: ${href}`);
+  }
+}
+
+// Fonts: every character a page shows is in the subset fonts, or known to be missing from Geist
+// altogether (it falls back to the system font). Otherwise: node scripts/gen/fonts.mjs.
+const fontsManifest = new URL("../src/assets/fonts/fonts.json", import.meta.url);
+const fonts = existsSync(fontsManifest)
+  ? JSON.parse(readFileSync(fontsManifest, "utf8")).fonts
+  : null;
+if (!fonts) problems.push("src/assets/fonts/fonts.json: missing (node scripts/gen/fonts.mjs)");
+else {
+  const known = new Set(Object.values(fonts).flatMap((f) => [...f.covered, ...f.missing]));
+  const unknown = new Map();
+  for (const [path, p] of pages)
+    for (const ch of visibleText(p.html)) {
+      const cp = ch.codePointAt(0);
+      if (cp >= 0x20 && !known.has(cp) && !unknown.has(ch)) unknown.set(ch, path);
+    }
+  for (const [ch, path] of unknown)
+    fail(
+      path,
+      `shows "${ch}" (U+${ch.codePointAt(0).toString(16).toUpperCase()}), which the subset fonts don't cover: run node scripts/gen/fonts.mjs`
+    );
+}
+
 const count = pages.size;
 if (warnings.length)
   console.warn(`! ${warnings.length} warning(s), on noindex pages:\n  ` + warnings.join("\n  "));
@@ -298,4 +424,8 @@ console.log(
 console.log(
   `✓ SEO: JSON-LD @ids resolve, og:images exist at their size, titles ≤ ${TITLE_MAX}, descriptions ${DESCRIPTION.join("–")}; ` +
     `sitemap lists the ${sitemapCount} indexable pages; robots.txt and llms.txt check out.`
+);
+console.log(
+  `✓ Privacy and security: no plain email in ${all.length} files, no GPS/XMP in images, the CSP allows ` +
+    `exactly the ${allowed.size} inline scripts, nothing loads from another origin.`
 );

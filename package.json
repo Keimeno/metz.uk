@@ -11,7 +11,10 @@
     "check": "astro check",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "verify": "node scripts/verify-dist.mjs",
+    "verify": "node scripts/verify-dist.mjs && node scripts/verify-browser.mjs",
+    "verify:dist": "node scripts/verify-dist.mjs",
+    "verify:browser": "node scripts/verify-browser.mjs",
+    "gen:icons": "node scripts/gen/icons.mjs",
     "gen:stills": "node scripts/gen/stills.mjs"
   },
   "dependencies": {
