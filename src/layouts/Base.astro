@@ -1,12 +1,13 @@
 ---
 // The document around every page: language, canonical, hreflang alternates, social metadata and the
 // structured-data graph (src/lib/seo.ts).
-import "@fontsource-variable/geist/wght.css";
-import "@fontsource-variable/geist-mono/wght.css";
+import "../styles/fonts.css";
 import "../styles/global.css";
 
-// The Latin subset is on every page, so it is fetched alongside the HTML instead of after the CSS.
-import fontLatin from "@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?url";
+// Both fonts are on every page (the mono kicker is above the fold), so they are fetched alongside
+// the HTML instead of after the CSS.
+import fontMono from "../assets/fonts/geist-mono.woff2?url";
+import fontSans from "../assets/fonts/geist.woff2?url";
 
 import {
   LOCALES,
@@ -103,7 +104,8 @@ if (import.meta.env.DEV && alternates) {
     <meta name="twitter:image" content={ogImage} />
     <meta name="twitter:image:alt" content={title} />
     <script is:inline type="application/ld+json" set:html={serializeLd(graph)} />
-    <link rel="preload" href={fontLatin} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={fontSans} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={fontMono} as="font" type="font/woff2" crossorigin />
     <meta name="theme-color" content="#0B0B0C" />
     <meta name="color-scheme" content="dark" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />

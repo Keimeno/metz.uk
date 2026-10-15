@@ -1,0 +1,16 @@
+/* Geist and Geist Mono (OFL-1.1), cut down to the characters the site uses by
+   scripts/gen/fonts.mjs; anything else falls back to the system font in the stacks below. */
+@font-face {
+  font-family: "Geist Variable";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("../assets/fonts/geist.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist Mono Variable";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("../assets/fonts/geist-mono.woff2") format("woff2");
+}
