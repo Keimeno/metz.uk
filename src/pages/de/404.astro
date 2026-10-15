@@ -1,0 +1,36 @@
+---
+// The 404 for everything under /de/ (Cloudflare serves the nearest 404.html; the build moves this
+// page to dist/de/404.html). German first, with a way to the English site.
+import Page from "../../layouts/Page.astro";
+import { route } from "../../i18n/routes";
+import { useT } from "../../i18n/ui";
+
+const de = useT("de");
+const en = useT("en");
+---
+
+<Page
+  title="404 · Constantin Metz"
+  description={de("notFound.body")}
+  locale="de"
+  alternates={null}
+  noindex>
+  <div class="wrap">
+    <header class="page-head">
+      <p class="eyebrow">404</p>
+      <h1>{de("notFound.title")}</h1>
+      <p class="lede">
+        {de("notFound.body")}{" "}
+        <a class="text-link" href={route("home", "de")}>
+          {de("notFound.home")}
+        </a>
+      </p>
+      <p class="lede" lang="en">
+        {en("notFound.body")}{" "}
+        <a class="text-link" href={route("home", "en")}>
+          {en("notFound.home")}
+        </a>
+      </p>
+    </header>
+  </div>
+</Page>
