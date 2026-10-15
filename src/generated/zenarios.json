@@ -7,11 +7,11 @@
     },
     "scenario": "Keep renting",
     "asOf": "2026-10-01",
-    "engineVersion": "4.0.0",
+    "engineVersion": "4.3.0",
     "marketModelVersion": 1,
     "inputHash": "1e624e75d9d8ab",
     "seed": 4024631049,
-    "appCommit": "412c883"
+    "appCommit": "7c785c9"
   },
   "people": [
     {
