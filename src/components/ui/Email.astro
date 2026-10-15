@@ -1,9 +1,11 @@
 ---
 // His email address, kept out of the page source so scrapers don't harvest it. The HTML holds the
-// address reversed (and no mailto:), shown the right way round with a bidi override; the first
-// real interaction (a pointer, a key, a touch, focus) turns every address on the page into a plain
-// mailto: link, before any click lands. Without JavaScript it still reads correctly and links to
-// the imprint. Any content passed in goes before the address, inside the link.
+// address reversed in an attribute (and no mailto:); CSS shows it the right way round with a bidi
+// override, as generated text, so copying or Reader mode never picks up the reversed string. The
+// first real interaction (a pointer, a key, a touch, focus, or a click from a screen reader that
+// sends nothing else) turns every address on the page into a plain mailto: link before the click
+// lands. Without JavaScript it still reads correctly and links to the imprint. Any content passed
+// in goes before the address, inside the link.
 import { PERSON } from "../../data/person";
 import { route, type Locale } from "../../i18n/routes";
 import { useT } from "../../i18n/ui";
@@ -26,23 +28,25 @@ const reversed = [...address].reverse().join("");
   aria-label={t("email.label")}
   data-email
   {...rest}>
-  <slot /><span class="email__addr" data-addr>{reversed}</span>
+  <slot /><span class="email__addr" data-addr={reversed} aria-hidden="true"></span>
 </a>
 
 <script>
   const upgrade = () => {
     for (const a of document.querySelectorAll<HTMLAnchorElement>("a[data-email]")) {
       const addr = a.querySelector<HTMLElement>("[data-addr]");
-      if (!addr?.textContent) continue;
-      const email = [...addr.textContent].reverse().join("");
+      if (!addr?.dataset.addr) continue;
+      const email = [...addr.dataset.addr].reverse().join("");
       addr.textContent = email;
       addr.removeAttribute("data-addr");
+      addr.removeAttribute("aria-hidden");
       a.href = `mailto:${email}`;
       a.removeAttribute("aria-label");
       a.removeAttribute("data-email");
     }
   };
-  const events = ["pointermove", "pointerdown", "touchstart", "keydown", "focusin"] as const;
+  // "click" last: it is still in time, since a link follows its href only after the click event.
+  const events = ["pointermove", "pointerdown", "touchstart", "keydown", "focusin", "click"] as const;
   const once = () => {
     for (const e of events) removeEventListener(e, once, true);
     upgrade();
@@ -51,7 +55,8 @@ const reversed = [...address].reverse().join("");
 </script>
 
 <style>
-  .email__addr[data-addr] {
+  .email__addr[data-addr]::before {
+    content: attr(data-addr);
     unicode-bidi: bidi-override;
     direction: rtl;
   }
