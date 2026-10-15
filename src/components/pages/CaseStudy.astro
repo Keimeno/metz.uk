@@ -5,6 +5,7 @@ import { render } from "astro:content";
 
 import Page from "../../layouts/Page.astro";
 import { publicFileExists } from "../../lib/files";
+import { pictureSources } from "../../lib/picture";
 import type { Project } from "../../lib/content";
 import { projectId, projectNode } from "../../lib/seo";
 import { projectAlternates, projectPath, route, type Locale } from "../../i18n/routes";
@@ -39,6 +40,7 @@ const linkLabel: Record<LinkKind, UiKey> = {
 // The header picture: the app (Zenarios), else the thread's still of this station, if rendered.
 const still = def.station ? `/media/thread/${def.station}.webp` : null;
 const phone = def.media?.find((m) => m.kind === "phone");
+const heroSources = phone ? pictureSources(phone.src, phone.width) : [];
 const hero = phone
   ? { ...phone, kind: "phone" as const }
   : still && publicFileExists(still)
@@ -109,14 +111,19 @@ const heroAlt =
       </div>
       {hero ? (
         <figure class:list={["case__hero", `case__hero--${hero.kind}`]}>
-          <img
-            src={hero.src}
-            width={hero.width}
-            height={hero.height}
-            alt={heroAlt}
-            decoding="async"
-            fetchpriority="high"
-          />
+          <picture>
+            {heroSources.map((s) => (
+              <source type={s.type} srcset={s.srcset} sizes="(max-width: 860px) 240px, 300px" />
+            ))}
+            <img
+              src={hero.src}
+              width={hero.width}
+              height={hero.height}
+              alt={heroAlt}
+              decoding="async"
+              fetchpriority="high"
+            />
+          </picture>
         </figure>
       ) : (
         <div class="case__glow" aria-hidden="true">

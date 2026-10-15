@@ -11,6 +11,7 @@ import Email from "../ui/Email.astro";
 import { HOME } from "../../i18n/home";
 import { INTL_LOCALE, projectPath, route, type Alternates, type Locale } from "../../i18n/routes";
 import { useT } from "../../i18n/ui";
+import { pictureSources } from "../../lib/picture";
 
 interface Props {
   locale: Locale;
@@ -41,6 +42,8 @@ const chapters = (["zenarios", "signals", "paperscores", "origins", "history"] a
 }));
 const historyIds = ["his.early", "his.2018", "his.2020", "his.2021", "his.2023", "his.2026"];
 const appStore = "https://apps.apple.com/app/zenarios/id6819013653";
+const phoneSrc = "/media/zenarios-overview.jpg";
+const phoneSources = pictureSources(phoneSrc, 480);
 ---
 
 <header class="site-head">
@@ -102,14 +105,18 @@ const appStore = "https://apps.apple.com/app/zenarios/id6819013653";
       </article>
 
       <figure class="plane plane--phone exhibit" data-plane="zen.phone" data-cue="zen.phone">
-        <img
-          src="/media/zenarios-overview.jpg"
-          width="480"
-          height="1020"
-          alt={c.zen.phoneAlt}
-          loading="lazy"
-          decoding="async"
-        />
+        <picture>
+          {phoneSources.map((s) => <source type={s.type} srcset={s.srcset} sizes="(max-width: 760px) 280px, 480px" />)}
+          <img
+            src={phoneSrc}
+            width="480"
+            height="1020"
+            alt={c.zen.phoneAlt}
+            loading="lazy"
+            decoding="async"
+            fetchpriority="low"
+          />
+        </picture>
       </figure>
 
       <ol class="labels" aria-hidden="true">
