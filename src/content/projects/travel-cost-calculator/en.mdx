@@ -33,4 +33,4 @@ The model sits behind four endpoints. One returns destination insights: 8–12 s
 
 ## Status
 
-A prototype from February 2026. It runs locally: the client's API address is hard-coded to localhost, and there are no tests. The cost formula exists twice, in the trip editor and in the store, and should be one tested function. The schemas guarantee shape, not sense, so a negative amount is still a valid number. The plausibility check is implemented on the server and in the API client, but nothing in the interface calls it yet. Running the model's own suggestions through it would be the obvious next step.
+A prototype from February 2026. It runs locally: the client's API address is hard-coded to localhost, and there are no tests. The cost formula is written out in three places and should be one tested function. The schemas guarantee shape, not sense, so a negative amount is still a valid number. The plausibility check is implemented on the server and in the API client, but nothing in the interface calls it yet. Running the model's own suggestions through it would be the obvious next step.

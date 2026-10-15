@@ -44,7 +44,7 @@ if (state.status === "VOTING") {
 }
 ```
 
-Jeder Spieler erfährt, welcher Eintrag sein eigener ist, und sonst nichts. Im Vorlesemodus sieht niemand die Texte, ohne diesen Hinweis wüsste man also nicht, welcher Buchstabe der eigene Bluff ist. Das Handy deaktiviert ihn, und die Engine lehnt Stimmen für den eigenen Text ohnehin ab.
+Jeder Spieler erfährt, welcher Eintrag sein eigener ist, und sonst nichts. Im Vorlesemodus sieht nur der Vorleser die Texte, ohne diesen Hinweis wüsste man also nicht, welcher Buchstabe der eigene Bluff ist. Das Handy deaktiviert ihn, und die Engine lehnt Stimmen für den eigenen Text ohnehin ab.
 
 **Reconnects, die die Runde nicht zerstören.** Jeder Browser speichert eine feste Spieler-ID und den aktuellen Raum im Local Storage und tritt automatisch wieder bei, sobald der Socket neu verbunden ist. Der Server ordnet Sockets einem Spieler zu, zwei Tabs zählen also als ein Platz. Bricht der letzte Socket eines Spielers weg, startet ein Timer über 45 Sekunden; wer zurückkommt, stoppt ihn. Läuft er ab, hängt das Ergebnis von der Phase ab. In der Lobby fliegt der Spieler raus. Fehlt der Vorleser, beginnt eine neue Runde mit einem neuen Vorleser. Alle anderen werden zu Zuschauern, und die Engine prüft neu, ob alle aktiven Spieler geschrieben oder abgestimmt haben. So endet die Runde, ohne auf ein Handy in irgendeiner Hosentasche zu warten.
 

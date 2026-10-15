@@ -38,7 +38,7 @@ Prognosen werden über einen Hash ihrer Eingaben gecacht, Szenarien gegeneinande
 
 Deshalb verbietet ESLint in `src/engine` `Math.random`, `exp`, `log`, `pow` und den `**`-Operator. Wachstum läuft über ganzzahlige Potenzen und eine feste Zahl von Newton-Schritten, das Marktmodell bringt eigene `exp`- und `log`-Funktionen mit, und der Zufall kommt aus einem eigenen, geseedeten Generator für jedes simulierte Marktszenario. Goldene Zusammenfassungen von vier Referenzhaushalten stecken in Snapshot-Tests; wer sie verschiebt, muss `ENGINE_VERSION` erhöhen, und das verwirft zugleich jede gecachte Prognose.
 
-Den Rest tragen die Tests: 348 Testdateien mit über 3.300 Fällen, 90,6 % Zeilenabdeckung der Logikschichten (Domain, Engine, Daten und Feature-Logik; die UI-Komponenten zählen nicht mit) und Abdeckungsschwellen pro Schicht in der CI. Zwölf Test-Personas, vom FIRE-Sparer bis zum Paar, das bei Hannover ein Haus kauft, laufen durch das echte Onboarding und die Engine.
+Den Rest tragen die Tests: 348 Testdateien mit über 3.300 Fällen, 90,6 % Zeilenabdeckung der Logikschichten (Domain, Engine, Daten und Feature-Logik; die UI-Komponenten zählen nicht mit) und Abdeckungsschwellen in der CI für Engine, Domain und Daten. Zwölf Test-Personas, vom FIRE-Sparer bis zum Paar, das bei Hannover ein Haus kauft, laufen durch das echte Onboarding und die Engine.
 
 ### 38 Steuersysteme, geprüft gegen die OECD
 
@@ -57,7 +57,7 @@ it.each(cases)("%s (tier %s) at %s %% of the average wage", (country, tier, shar
 });
 ```
 
-Die 12 detaillierten Systeme müssen auf 0,75 Prozentpunkte genau treffen (beim niedrigen Lohn auf 1,25, weil dort Transferleistungen am meisten ausmachen), die 26 einfacheren auf 1,5 bis 2. Braucht ein Land mehr Spielraum, steht im Katalogeintrag, warum: Chile und Kolumbien etwa rechnen Beiträge mit, die die OECD weglässt, weil sie das Nettoeinkommen schmälern.
+Die 12 detaillierten Systeme müssen auf 0,75 Prozentpunkte genau treffen (beim niedrigen Lohn auf 1,25, weil dort Transferleistungen am meisten ausmachen), die 26 einfacheren auf 1,5 bis 2. Braucht ein Land mehr Spielraum, steht im Katalogeintrag, warum. Die Schweiz, eines der detaillierten Systeme, hat eine Toleranz von 4 bis 5,25 Prozentpunkten, auch die Niederlande und Neuseeland haben breitere Toleranzen, und Chile und Kolumbien rechnen Beiträge mit, die die OECD weglässt, weil sie das Nettoeinkommen schmälern.
 
 Die OECD-Zahlen selbst kommen aus der Statistik-Pipeline. Ein Skript lädt die Quellen herunter und filtert sie (Destatis, Eurostat, OECD, Weltbank, nationale Statistikämter); ein zweites, offline und deterministisch, macht daraus typisierte TypeScript-Tabellen und prüft unterwegs, was stimmen muss: Deutschland hat 400 Kreise, die Miete in München liegt über der in Bremen, US-Aktien verloren 1931 mehr als 40 %. Der Lint-Lauf schlägt fehl, sobald eine generierte Datei veraltet ist, und die App nennt jede Quelle mit ihrer Lizenz.
 
@@ -69,7 +69,7 @@ Die Antwort entsteht, indem Ask die Änderung auf eine Kopie des Plans anwendet 
 
 ## Stand
 
-Zenarios ist live und kostenlos im [App Store](https://apps.apple.com/app/zenarios/id6819013653), für das iPhone und für Macs mit Apple-Chip. Pläne verlassen das Gerät nie. Die App meldet anonyme Nutzungsstatistiken (welche Screens genutzt werden, nie Beträge oder Namen), und die lassen sich abschalten.
+Zenarios ist live und kostenlos im [App Store](https://apps.apple.com/app/zenarios/id6819013653), für das iPhone und für Macs mit Apple-Chip. Pläne verlassen das Gerät nie. Die App meldet pseudonyme Nutzungsstatistiken unter einer Geräte-ID (welche Screens genutzt werden, nie Beträge oder Namen); sie sind standardmäßig an und lassen sich abschalten.
 
 Was noch fehlt:
 

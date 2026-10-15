@@ -44,7 +44,7 @@ if (state.status === "VOTING") {
 }
 ```
 
-Each player learns which entry is their own and nothing else. In read-aloud mode nobody sees the texts, so without that hint you couldn't tell which letter is your bluff. The phone disables it, and the engine rejects self-votes anyway.
+Each player learns which entry is their own and nothing else. In read-aloud mode only the reader sees the texts, so without that hint you couldn't tell which letter is your bluff. The phone disables it, and the engine rejects self-votes anyway.
 
 **Reconnects that don't wreck the round.** Each browser keeps a stable player ID and its current room in local storage and rejoins as soon as the socket reconnects. The server tracks sockets per player, so two tabs count as one seat. When a player's last socket drops, a 45-second timer starts, and coming back cancels it. If it runs out, the outcome depends on the phase. In the lobby the player is removed. A missing reader triggers a fresh round with a new reader. Anyone else becomes an observer, and the engine re-checks whether all active players have written or voted, so the round finishes without waiting for a phone in someone's pocket.
 

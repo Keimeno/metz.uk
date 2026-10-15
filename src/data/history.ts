@@ -107,8 +107,8 @@ export const HISTORY: HistoryEntry[] = [
     title: { en: "Sequelize maintainers team", de: "Im Maintainer-Team von Sequelize" },
     org: { name: "Sequelize" },
     body: {
-      en: "On the maintainers team of Sequelize, the SQL ORM for Node.js, while it moved to TypeScript: 13 pull requests (10 merged) and 28 reviews of other contributors' pull requests. The largest, #13710, moved the library's errors to TypeScript: +731 −616 across 41 files.",
-      de: "Im Maintainer-Team von Sequelize, dem SQL-ORM für Node.js, während es auf TypeScript umzog: 13 Pull Requests (10 gemergt) und 28 Reviews der Pull Requests anderer. Der größte, #13710, brachte die Fehlerklassen der Bibliothek nach TypeScript: +731 −616 in 41 Dateien.",
+      en: "On the maintainers team of Sequelize, the SQL ORM for Node.js, while it moved to TypeScript: 13 pull requests (10 merged) and, in 2021, reviews of 28 pull requests by other contributors. The largest, #13710, moved the library's errors to TypeScript: +731 −616 across 41 files.",
+      de: "Im Maintainer-Team von Sequelize, dem SQL-ORM für Node.js, während es auf TypeScript umzog: 13 Pull Requests (10 gemergt) und 2021 Reviews von 28 Pull Requests anderer. Der größte, #13710, brachte die Fehlerklassen der Bibliothek nach TypeScript: +731 −616 in 41 Dateien.",
     },
     links: [
       {

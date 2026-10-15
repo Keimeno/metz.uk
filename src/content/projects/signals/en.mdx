@@ -7,7 +7,7 @@ stack: ["Python 3.13", "ClickHouse", "Grafana", "NumPy", "ntfy", "Docker Compose
 facts:
   - { value: "37", label: "subreddits tracked" }
   - { value: "2M", label: "terms tested per long-term run", note: "production-scale benchmark on synthetic data" }
-  - { value: "262 s", label: "for a year of history at scale", note: "1.03 billion daily rows, synthetic benchmark, 4 CPUs" }
+  - { value: "262 s", label: "for a year of history at scale", note: "one synthetic year: 1.03 billion rows of daily counts, 4 CPUs" }
   - { value: "3", label: "languages captioned live" }
 ---
 
@@ -21,7 +21,7 @@ The second tool is simpler: at a talk, people should be able to read along in th
 
 ## What I built
 
-**WGRA v2** ([code on the `wgra-v2` branch](https://github.com/Keimeno/word-growth-rate-analyzer/tree/wgra-v2)) is a single-machine Python service. An ingester polls 37 subreddits in six groups as multireddit feeds, plus an r/all sample as background vocabulary. It stays well inside Reddit's free API tier. Every comment and post becomes one row per distinct term (words, two- and three-word phrases, linked domains, subreddit mentions) in a ClickHouse `Null` table; materialised views roll them up into hourly and daily counts with a HyperLogLog sketch of distinct authors. Authors are only ever a keyed hash, and raw text is deleted after 48 hours.
+**WGRA v2** ([code on the `wgra-v2` branch](https://github.com/Keimeno/word-growth-rate-analyzer/tree/wgra-v2)) is a single-machine Python service. An ingester polls 37 subreddits, sorted into six groups, as multireddit feeds of up to 25 subreddits each, plus an r/all sample as background vocabulary. It stays well inside Reddit's free API tier. Every comment and post becomes one row per distinct term (words, two- and three-word phrases, linked domains, subreddit mentions) in a ClickHouse `Null` table; materialised views roll them up into hourly and daily counts with a HyperLogLog sketch of distinct authors. Authors are only ever a keyed hash, and raw text is deleted after 48 hours.
 
 Every 15 minutes an analyser scores short-term bursts (the last 24 hours against the 28 days before, the last 6 hours against the same hours of earlier days). Once a day it looks for steady trends over 13, 26 and 52 weeks and learns which subreddits pick up terms before others. Results land in Grafana dashboards generated from code; the strongest reach my phone through ntfy.
 
@@ -33,7 +33,7 @@ I designed and directed it with an agent workflow over 10 and 11 October 2026; t
 
 **Scoring bursts without drowning in rare words.** A plain ratio of shares (comments mentioning a term over all comments) explodes for rare terms: one mention against none is infinite growth. I use the weighted log-odds ratio with an informative Dirichlet prior from Monroe, Colaresi and Quinn's *Fightin' Words*. Pseudo-counts centred on the term's share of the r/all sample shrink thin evidence towards "normal for Reddit", and `z = δ / σ` ranks terms by strength of evidence, not size of ratio.
 
-The paper compares corpora of similar size. Here the reference period is 28 times the window, and equal pseudo-counts pulled the small side much harder: a stable term at 0.1 % of a subreddit and 5 % of Reddit scored 3.2× (z 6.5) while nothing changed. So each side gets pseudo-counts in proportion to its own size, and a term whose share doesn't move scores exactly zero. A floor of one pseudo-mention keeps brand-new names finite, and on the first day the Reddit-wide share stands in for missing history. From `v2/src/wgra/detect/scoring.py`:
+The paper compares corpora of similar size. Here the reference period is 28 times the window, and equal pseudo-counts pulled the small side much harder: a stable term at 0.1 % of a subreddit and 5 % of Reddit scored 3.15× (z 6.5) while nothing changed. So each side gets pseudo-counts in proportion to its own size, and a term whose share doesn't move scores exactly zero. A floor of one pseudo-mention keeps brand-new names finite, and on the first day the Reddit-wide share stands in for missing history. From `v2/src/wgra/detect/scoring.py`:
 
 ```python
 def score(self, prior: Prior) -> Score:
@@ -53,15 +53,15 @@ def score(self, prior: Prior) -> Score:
 
 **Long-term trends that survive multiple testing.** Weekly shares are noisy, often zero and full of spikes. A least-squares line in ClickHouse cheaply picks the 100 most promising terms per scope and window; Python runs the robust statistics on those. Theil–Sen (the median of all pairwise slopes) estimates growth per month: on test data, one week at 20× the usual share made least squares report +34 % a month and Theil–Sen +2 %. Mann–Kendall tests whether a trend exists at all, by counting week pairs that go up against those that go down, with tie corrections for weeks without a mention.
 
-Benjamini–Hochberg then controls the false discovery rate over every term the run tested, with non-candidates counted as p = 1. Correcting over the candidates alone found 105 "trends" in two subreddits of pure noise, as they are the most extreme of thousands; over all of them it found none among 2 million noise terms. The price: with 13 weekly points the smallest possible Mann–Kendall p is 2.6·10⁻⁶, so a 13-week trend has to be almost perfectly monotonic. One run over a year of synthetic history at production scale, 1.03 billion daily rows, takes 262 s on 4 CPUs and 8 GB.
+Benjamini–Hochberg then controls the false discovery rate over every term the run tested, with non-candidates counted as p = 1. Correcting over the candidates alone found 105 "trends" in two subreddits of pure noise, as they are the most extreme of thousands; over all of them it found none among 2 million noise terms. The price: with 13 weekly points the smallest possible Mann–Kendall p is 2.6·10⁻⁶, so a 13-week trend has to be almost perfectly monotonic. One run over a year of synthetic history at production scale, 1.03 billion rows of daily counts, takes 262 s on 4 CPUs and 8 GB.
 
 **Lead–lag: association is not direction.** Each strong trend becomes an event; every subreddit and group gets an onset, the first hour its trailing 24 hours pass the gates against its own past. Groups are also measured without each member, so "r/LocalLLaMA leads tech" isn't true by construction. For each leader and follower over 180 days, a one-sided binomial test asks whether the follower crosses within 7 days more often than its base rate, corrected over all pairs. On the benchmark this found the 5 planted pairs and about 240 random ones: big stories reach many subreddits, so any two co-occur.
 
-The fix was a second test: among events where both crossed, the leader has to come first significantly more often than a coin flip, and in at least 70 % of them. That left 14 edges: the 5 planted pairs, 8 group and topic versions of them, and one other. Probabilities are a Beta posterior shrunk towards the base rate by four pseudo-events, so 3 hits of 3 at a base rate of 0.2 read as 54 % (27–80 %), not 100 %. Edges are relearned daily, with no lookahead.
+The fix was a second test: among events where both crossed, the leader has to come first significantly more often than a coin flip, and in at least 70 % of them. That left 14 edges: the 5 planted pairs, 8 group and topic versions of them, and one other. Probabilities are a Beta posterior shrunk towards the base rate by four pseudo-events, so 3 hits of 3 at a base rate of 0.2 read as 54 % (30–77 %), not 100 %. Edges are relearned daily, with no lookahead.
 
 **What the replay shows, and what it doesn't.** In the end-to-end test one synthetic subreddit leads another by three days on 18 planted terms. A daily replay gets 13 of 15 forecasts right (87 % precision), 23 % recall, and a Brier score of 0.099 against 0.330 for always forecasting the base rate. On the larger benchmark, where planted followers follow only about 40 % of the time, precision is 43 % and calibrated (Brier 0.249 against 0.276). Both are replays on planted data: they show the method recovers structure that is there, and nothing yet about Reddit.
 
-**Captions that keep up.** Deepgram's interim results go on screen at once, a line closes after 300 ms of silence, and only final lines go to DeepL's latency-optimised model.
+**Captions that keep up.** A line closes after 300 ms of silence. Only final lines reach the screen, typed out character by character, and only they go to DeepL's latency-optimised model; Deepgram's interim results stay off screen.
 
 ## Status
 

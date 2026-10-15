@@ -26,7 +26,7 @@ CarCost Germany is a single-page app. You add as many cars as you like, from 79 
 - a company-car calculator for the 1 % rule;
 - PDF, CSV and PNG export, and share links that carry the whole comparison.
 
-Everything runs in the browser. It installs as a PWA and caches itself for offline use, and it can pull live fuel prices near you from the Tankerkönig API. The interface is in English and German, with a dark mode.
+Everything runs in the browser. It installs as a PWA and caches itself for offline use, and with your own Tankerkönig API key it pulls live fuel prices near you (the built-in demo key returns test data). The interface is in English and German, with a dark mode.
 
 ## The hard parts
 
@@ -34,7 +34,7 @@ Everything runs in the browser. It installs as a PWA and caches itself for offli
 
 **Opportunity cost, measured relatively.** Money tied up in a car could have been invested. Charging every car an absolute opportunity cost penalises all of them and tells you little. So the engine measures each car against the cheapest one in the comparison: the extra down payment, the extra monthly instalment and the extra running costs, each compounded at your chosen rate over the holding period. Totals, yearly breakdowns and the break-even chart all use the same figures.
 
-**The 1 % rule.** For a company car, the taxable benefit per month is a percentage of the gross list price, not of what was actually paid. The calculator applies 1 % for combustion cars, 0.25 % for electric cars up to a list price of 70,000 €, 0.5 % for pricier EVs and hybrids, plus 0.03 % of the list price per kilometre of one-way commute. That benefit is taxed at your marginal rate. The calculator keeps the list price as its own input, defaulting to the purchase price, and sets the tax against the running costs an employer would cover.
+**The 1 % rule.** For a company car, the taxable benefit per month is a percentage of the gross list price, not of what was actually paid. The calculator applies 1 % for combustion cars, 0.25 % for electric cars up to a list price of €70,000, 0.5 % for pricier EVs and hybrids, plus 0.03 % of the list price per kilometre of one-way commute. That benefit is taxed at your marginal rate. For cars bought after 30 June 2025 the 0.25 % cap is €100,000, which is the calculator's next update. The calculator keeps the list price as its own input, defaulting to the purchase price, and sets the tax against the running costs an employer would cover.
 
 **Share links without a backend.** A comparison is serialised, stripped of empty fields and LZ-compressed into the URL fragment, so it never reaches a server. The app warns when a link gets longer than 2,000 characters, and a personal Tankerkönig key stays in local storage instead of the link.
 

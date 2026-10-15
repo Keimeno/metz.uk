@@ -38,7 +38,7 @@ Forecasts are cached by a hash of their inputs, scenarios are compared against e
 
 So ESLint bans `Math.random`, `exp`, `log`, `pow` and the `**` operator anywhere in `src/engine`. Growth uses integer powers and fixed Newton steps, the market model has its own `exp` and `log`, and randomness comes from a seeded generator per simulated future. Golden summaries of four reference households are snapshot-tested; a change that moves them has to bump `ENGINE_VERSION`, which also retires every cached projection.
 
-The tests carry the rest: 348 test files with over 3,300 cases, 90.6 % line coverage of the logic layers (domain, engine, data and feature logic; the UI components aren't counted) and per-layer coverage gates in CI. Twelve test personas, from a FIRE saver to a couple buying a house near Hannover, run through the real onboarding and engine.
+The tests carry the rest: 348 test files with over 3,300 cases, 90.6 % line coverage of the logic layers (domain, engine, data and feature logic; the UI components aren't counted) and coverage gates in CI for the engine, domain and data layers. Twelve test personas, from a FIRE saver to a couple buying a house near Hannover, run through the real onboarding and engine.
 
 ### 38 tax systems, checked against the OECD
 
@@ -57,7 +57,7 @@ it.each(cases)("%s (tier %s) at %s %% of the average wage", (country, tier, shar
 });
 ```
 
-The 12 detailed systems must land within 0.75 points (1.25 at the low wage, where cash benefits matter most), the 26 simpler ones within 1.5 to 2. Where a country needs more room, its catalogue entry says why: Chile and Colombia, for instance, count contributions the OECD leaves out, because they reduce take-home pay.
+The 12 detailed systems must land within 0.75 points (1.25 at the low wage, where cash benefits matter most), the 26 simpler ones within 1.5 to 2. Where a country needs more room, its catalogue entry says why. Switzerland, one of the detailed systems, has a tolerance of 4 to 5.25 points, the Netherlands and New Zealand have wider bands too, and Chile and Colombia count contributions the OECD leaves out, because they reduce take-home pay.
 
 Those OECD figures come out of the statistics pipeline. One script downloads and filters the sources (Destatis, Eurostat, the OECD, the World Bank, national statistics offices); a second, offline and deterministic, turns them into typed TypeScript tables and asserts what has to be true on the way: Germany has 400 districts, rent in Munich is above rent in Bremen, US stocks lost more than 40 % in 1931. Lint fails when a generated file is stale, and the app lists every source with its licence.
 
@@ -69,7 +69,7 @@ The answer comes from applying the change to a copy of the plan and running the 
 
 ## Status
 
-Zenarios is live and free on the [App Store](https://apps.apple.com/app/zenarios/id6819013653) for iPhone and for Macs with Apple silicon. Plans never leave the device. The app reports anonymous usage statistics (which screens are used, never amounts or names), and those can be switched off.
+Zenarios is live and free on the [App Store](https://apps.apple.com/app/zenarios/id6819013653) for iPhone and for Macs with Apple silicon. Plans never leave the device. The app reports pseudonymous usage statistics under a device ID (which screens are used, never amounts or names); they are on by default and can be switched off.
 
 Not done yet:
 

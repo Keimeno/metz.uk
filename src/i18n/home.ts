@@ -128,20 +128,20 @@ const en: HomeCopy = {
     graphH2: "And it learns which communities talk about things first.",
     graphBody:
       "Leader-to-follower edges between subreddits, tested for direction and turned into early warnings, then scored by replaying trends planted in the data.",
-    graphNote: "A replay with a planted trend · the subreddits are its real configuration",
+    graphNote: "An illustration · drawn on the real configuration of 37 subreddits",
     liveKicker: "LiveTranslate",
     liveH2: "And one that listens: a talk, captioned live in three languages.",
     liveBody:
-      "The browser's microphone streams to Deepgram over a WebSocket, DeepL translates each finished line, and the captions build word by word.",
+      "The browser's microphone streams to Deepgram over a WebSocket, DeepL translates each finished line, and every line types itself out on screen.",
     onset: "Onset",
     labels: "The constellation",
     captionLabel: "A live caption in German, English and Portuguese",
-    spreadLabel: "A replayed trend, spreading",
+    spreadLabel: "An illustrative trend, spreading",
     spreadSource: "source",
   },
   ps: {
     h2: "An AI reviewer that grades medical research before you trust it.",
-    body: "Papers scored 0–100 on six dimensions mapped to CONSORT and Cochrane's risk-of-bias tool, every finding citing the page it came from.",
+    body: "Papers scored 0–100 on six dimensions, with checklists aligned with CONSORT and related standards, and findings that point to the page they came from, where there is one.",
     note: "A real scorecard: a narrative review, low on methods by design. The paper isn't named.",
     subscores: {
       methodsRigour: "Methods",
@@ -178,7 +178,7 @@ const en: HomeCopy = {
     steps: [
       { year: "Early", text: "HTML, CSS, JavaScript; Java for Minecraft mods" },
       { year: "2018", text: "Internships during school: Django, Angular" },
-      { year: "2020", text: "First engineering job: client architectures, SSR, design systems" },
+      { year: "2020", text: "First engineering job: React widgets, Storybook, CMS sites" },
       { year: "2021", text: "Senior engineer: an offline-capable PWA for in-store kiosks" },
       { year: "2023", text: "Marketplace apps for Jira: React, Node, .NET, an Nx monorepo" },
       { year: "2026", text: "AI quoting for industry at a YC startup; Zenarios ships" },
@@ -237,20 +237,20 @@ const de: HomeCopy = {
     graphH2: "Und es lernt, welche Communitys zuerst über etwas sprechen.",
     graphBody:
       "Kanten von Vorreitern zu Nachzüglern zwischen Subreddits, auf ihre Richtung getestet, in Frühwarnungen übersetzt und an eingepflanzten Trends im Replay gemessen.",
-    graphNote: "Ein Replay mit eingepflanztem Trend · die Subreddits sind die echte Konfiguration",
+    graphNote: "Eine Illustration · gezeichnet auf der echten Konfiguration mit 37 Subreddits",
     liveKicker: "LiveTranslate",
     liveH2: "Und eins, das zuhört: ein Vortrag, live untertitelt in drei Sprachen.",
     liveBody:
-      "Das Mikrofon im Browser streamt per WebSocket zu Deepgram, DeepL übersetzt jede fertige Zeile, und die Untertitel bauen sich Wort für Wort auf.",
+      "Das Mikrofon im Browser streamt per WebSocket zu Deepgram, DeepL übersetzt jede fertige Zeile, und jede Zeile tippt sich auf dem Bildschirm aus.",
     onset: "Beginn",
     labels: "Die Konstellation",
     captionLabel: "Ein Live-Untertitel auf Deutsch, Englisch und Portugiesisch",
-    spreadLabel: "Ein nachgespielter Trend breitet sich aus",
+    spreadLabel: "Ein Beispieltrend breitet sich aus",
     spreadSource: "Quelle",
   },
   ps: {
     h2: "Ein KI-Gutachter, der medizinische Studien bewertet, bevor man ihnen vertraut.",
-    body: "Studien bekommen 0–100 Punkte in sechs Dimensionen, abgeleitet aus CONSORT und dem Risk-of-Bias-Tool von Cochrane. Jeder Befund nennt die Seite, von der er stammt.",
+    body: "Studien bekommen 0–100 Punkte in sechs Dimensionen, mit Checklisten nach CONSORT und verwandten Standards. Befunde nennen die Seite, von der sie stammen, wo es eine gibt.",
     note: "Eine echte Bewertung: ein narratives Review, das methodisch naturgemäß schwach abschneidet. Die Studie bleibt ungenannt.",
     subscores: {
       methodsRigour: "Methodik",
@@ -288,7 +288,7 @@ const de: HomeCopy = {
     steps: [
       { year: "Früh", text: "HTML, CSS, JavaScript; Java für Minecraft-Mods" },
       { year: "2018", text: "Praktika während der Schulzeit: Django, Angular" },
-      { year: "2020", text: "Erster Job als Entwickler: Client-Architekturen, SSR, Design-Systeme" },
+      { year: "2020", text: "Erster Job als Entwickler: React-Widgets, Storybook, CMS-Websites" },
       { year: "2021", text: "Senior Engineer: eine offlinefähige PWA für Kiosks im Laden" },
       { year: "2023", text: "Marketplace-Apps für Jira: React, Node, .NET, ein Nx-Monorepo" },
       { year: "2026", text: "KI für Angebote in der Industrie bei einem YC-Start-up; Zenarios erscheint" },
