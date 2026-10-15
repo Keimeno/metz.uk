@@ -70,6 +70,29 @@ Findings are numbered by area: P performance, R robustness, A accessibility, C c
 - **Three read-only fact-check passes** over the source repos plus `gh api`, and a content review of every EN/DE file. Details are in Appendices A and B.
 - **What this can't tell you:** CPU throttling doesn't slow the GPU, so none of this proves frame rates on an iPhone 11 or SE. A real-device pass is still needed (item P7).
 
+## Status after the first fix pass (16 October 2026)
+
+Every finding below that has a **Fixed** or **Partly fixed** line was worked on in this pass. The rest is as the review found it. All of it is checked by `npm run verify`, which now runs `scripts/verify-dist.mjs` and the new `scripts/verify-browser.mjs` (headless Chrome against `dist/`, served like Cloudflare with the `_headers` CSP applied). Run against the pre-fix commit, that browser check reproduces every launch-blocker it covers: the same 14 pages overflow at 390 px; 3 headings vs 14; find and Tab can't reach the stations; 60 fps idle and under the curtain; context loss leaves 11 panels hidden. The current build passes all of it.
+
+| | Done in this pass |
+|---|---|
+| Launch-blockers | E4, A1, R1, X1, E1 (local only), X2 (configuration, not deployed), C3 (the parts that need no decision) |
+| Should-fix | A2, A3 (partly), P1 (partly), P2, P3, P4, P8, S1, S2, S3, X4 (partly), E3 (partly), Appendix B (partly) |
+| Measured after | Lighthouse mobile: `/` LCP **1.4 s** (was 2.10 s), 157 KB (was 228 KB), no render-blocking requests; `/work/zenarios/` LCP 1.2 s, 71 KB; all four categories 100 on both |
+
+**Still needs Constantin** (unchanged by this pass):
+- C1: the c/o address, host, data processing agreement and log retention.
+- C2: publishing or hiding the posts.
+- C3: the PaperScores offline/link question and the OIDC "one sign-in" claim.
+- C5 and Appendix A: approval of the German copy, including the German lines this pass changed for factual reasons (listed under C3 and Appendix B).
+- C7: the LiveTranslate caption and the `key-redeem-feedback` SQL dump.
+- E2: the licence.
+- Phase 6: sound.
+- A sharper 2× source for the Zenarios phone picture (P1).
+- Whether the email should become readable to voice control before the first interaction (A3).
+- Before the repo goes public: `src/data/person.ts` and `src/data/legal.ts` hold the email in plain text, which `dist/` never does. The source is in the local commit too.
+
+
 ---
 
 ## 1. Performance
@@ -134,6 +157,8 @@ These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 b
 
 ### P1. The home page loads an 80 KB JPEG at high priority that nobody sees for three screens
 **should** · effort S
+> **Partly fixed (16 Oct).** AVIF (20 KB) and WebP (25 KB) next to the JPEG via `<picture>` on the home page and the case study (`scripts/gen/phone.mjs`, `src/lib/picture.ts`). On the home page the plane waits outside the clipped layer until 1.5 beats before its cue, when `sync.ts` switches its image to eager: `verify-browser` checks that it doesn't load with the page. Still soft on 3× screens: the original render isn't in any repo, so the 2× files need a source of 960 px or wider from Constantin (`node scripts/gen/phone.mjs <source>` makes them, and the markup picks them up).
+
 - **Evidence:**
   - In Lighthouse's network list for `/`, `/media/zenarios-overview.jpg` has priority High and starts at 36 ms.
   - The phone `<img>` has `loading="lazy"` (`src/components/home/Thread.astro:110`). With the thread on, though, the plane sits in a `position: fixed` layer inside the viewport, so lazy-loading never defers it.
@@ -145,6 +170,8 @@ These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 b
 
 ### P2. Two render-blocking stylesheets on every page; the mobile LCP on `/` is 2.10 s
 **should** · effort S
+> **Fixed (16 Oct).** `build.inlineStylesheets: "always"`. Lighthouse mobile on `/`: no render-blocking requests, LCP 1.4 s.
+
 - **Evidence:**
   - Lighthouse `render-blocking-resources` flags `Base.*.css` (9.8 KB raw) and `Home.*.css` (21 KB raw), with an estimated 450 ms saving on mobile. On a case study it is `Base` plus `CaseStudy`, 420 ms.
   - The cause is `build.inlineStylesheets: "auto"` in `astro.config.mjs:10`.
@@ -155,6 +182,8 @@ These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 b
 
 ### P3. Fonts aren't subset, and the arrows fall back to a system font
 **should** · effort S
+> **Fixed (16 Oct).** `scripts/gen/fonts.mjs` subsets the upstream Geist and Geist Mono variable fonts (`data/sources/fonts/`, OFL-1.1, from the `geist` npm package 1.7.2, which has → and ↗) to every character in `dist/` plus printable ASCII and German and typographic marks, keeping the weight axis and kern, liga, calt, tnum and case. 21.9 + 16.7 KB instead of 29.4 + 23.1 KB, hashed under `/_astro/`, both preloaded. `verify-dist` fails when a page shows a character the subsets lack (re-run the script then). δ, σ and ⁻ aren't in Geist at all and fall back as before. The `@fontsource-variable/*` packages are gone; the static `@fontsource/geist` files stay for the OG cards.
+
 - **Evidence:**
   - Every page preloads `geist-latin-wght-normal.woff2` (29,400 B) and fetches `geist-mono-latin` (23,128 B).
   - The site uses 132 distinct glyphs, counted over all of `dist/`. Subsetting both files to those with `pyftsubset` (keeping kern, liga, calt, tnum and case) gives **19,264 B and 14,440 B**, a saving of **19 KB (−36 %)** on every first visit.
@@ -167,6 +196,8 @@ These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 b
 
 ### P4. The thread renders every frame even when nothing can be seen
 **should** · effort S–M
+> **Fixed (16 Oct).** The loop stops while `thread-past` is set and wakes on scroll, wheel, pointer, touch, keys, resize, focus or a class change. After 1.5 s with nothing moving (timeline, write-on, glint, pointer, sparks, kickers) it draws at about 20 fps, which keeps the drift, dust and pulse alive; it doesn't stop entirely, because those run on the clock. Throttled frames don't feed the quality watchdog. Measured: 20 fps idle at a station, 0 under the page below.
+
 - **Evidence:**
   - Scrolled to the footer, with the curtain covering the canvas: **8,600 draw calls per second** (uncapped). Idle at a station: the same.
   - On a real device that means every vsync (60 or 120 Hz), at 2880×1800 with bloom on a laptop.
@@ -199,6 +230,8 @@ These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 b
 
 ### P8. No caching strategy yet
 **should** · effort S (part of X2)
+> **Fixed (16 Oct), not yet deployed.** The rules are in `public/_headers` (see X2). The `?v=<hash>` for `og:image` (S7) is not done.
+
 - **Evidence:** there is no `public/_headers`. The proposed rules are below.
 - **Fix:**
   - `/_astro/*` (hashed): `public, max-age=31536000, immutable`
@@ -219,6 +252,8 @@ These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 b
 
 ### R1. A lost WebGL context leaves the home page blank and drops the reader somewhere else
 **launch-blocker** · effort S (fallback) / M (real restore)
+> **Fixed (16 Oct): the fallback.** `stop()` now undoes everything `DomSync` and `Chrome` wrote (`sync.reset()`, `chrome.dispose()`): inline styles, `data-off`, label sides, the final text in every counter and kicker, `thread-past`, the chapter-link handlers. It then lands the reader on the panel they were reading, or keeps the page below exactly in place. `verify-browser` loses the context at Signals and below the thread on `/` and `/de/`. Both times: 14 headings, every panel visible, the page as tall as `?nothread`, the reader in place. Not done: rebuilding the GL resources on `webglcontextrestored`, so the thread could continue.
+
 - **Evidence:** I lost the context with `WEBGL_lose_context` while at Signals. `stop()` (`src/thread/main.ts:321-337`) removes `thread-on`, but:
   - 11 of 12 panels keep the inline `visibility: hidden; --v: 0` that `sync.ts:126` wrote, so the document version is empty except one panel. Labels keep `opacity: 0`.
   - The PaperScores score shows "0", because the counter text was overwritten (`sync.ts:131-137`).
@@ -317,6 +352,8 @@ These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 b
 
 ### A1. With the thread on, assistive technology, Tab and find-in-page can't reach the stations
 **launch-blocker** · effort M
+> **Fixed (16 Oct), with one change of plan.** Panels, labels and planes outside their cue now get `data-off` (opacity 0, links unclickable) instead of `visibility: hidden`, and so does the layer before `thread-ready`. A `focusin` anywhere in a panel scrolls the timeline to its cue. `verify-browser`: 14 headings with the thread on and off on both home pages, `window.find` reaches "Deepgram", "CONSORT" and "Sequelize", and Tab reaches all 9 links in the thread, each panel coming up. **`hidden="until-found"` is not used:** measured in Chrome 155, it drops the content from the accessibility tree and the Tab order, which would undo the two points above. Instead, a selection that lies inside one panel scrolls to that panel. Chrome and Safari select the find match when the find bar closes, and Firefox as it searches. The match is found while the bar is open, but its panel only comes up on close in Chrome. Still to do: a VoiceOver pass on a real device (P7).
+
 - **Evidence:** at page load, the accessibility tree compares like this:
 
   | | Thread on | `?nothread` |
@@ -337,6 +374,8 @@ These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 b
 
 ### A2. Word splitting, scrambled kickers and counters change what assistive technology reads
 **should** · effort S
+> **Fixed (16 Oct).** Each animated element keeps its real text in a visually hidden span; the split words, the decoding kicker and the counter play on an `aria-hidden` copy (`twin()` in `sync.ts`). Find "1,000" and screen readers get the real values from the first frame.
+
 - **Evidence:**
   - `splitWords` (`sync.ts:53-67`) turns every word of each `<h2>` into `inline-block` spans (`Thread.astro:576-585`). VoiceOver on iOS tends to stop at each inline-block, so headings get read one word per swipe.
   - The kickers' scramble writes random glyphs into `textContent` for 700 ms (`sync.ts:212-228`).
@@ -345,6 +384,8 @@ These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 b
 
 ### A3. The email link's accessible name doesn't match its visible text, and screen-reader activation goes to the imprint
 **should** · effort S
+> **Partly fixed (16 Oct).** A capturing `click` now upgrades the link before its default action, so a screen reader's bare click opens mail instead of the imprint. The reversed address moved into CSS generated content (`attr(data-addr)`, `aria-hidden`), so copy-paste and Reader mode no longer give a reversed string, and Lighthouse's `label-content-name-mismatch` no longer applies. Still open, for Constantin: before the first interaction the accessible name is "Email Constantin Metz", not the address, so WCAG 2.5.3 is only fully met if the address (or "constantin at metz dot uk") appears in the HTML.
+
 - **Evidence:**
   - Lighthouse fails `label-content-name-mismatch` on every page. The visible text is "constantin@metz.uk" but the name is "Email Constantin Metz" (`src/components/ui/Email.astro:26`). This is WCAG 2.5.3, level A: a voice-control user saying "click constantin@metz.uk" gets nothing.
   - The upgrade waits for `pointermove`, `pointerdown`, `touchstart`, `keydown` or `focusin` (`:45`). NVDA in browse mode activates links with a plain `click`, which fires none of these, so the user lands on /imprint.
@@ -404,6 +445,12 @@ The full content review, with all 33 German suggestions and the per-project fact
 
 ### C3. Claims that are false or overstated today
 **launch-blocker** · effort S · **some need Constantin**
+> **Partly fixed (16 Oct): everything that needed no decision.**
+> - Home Signals note: "An illustration · drawn on the real configuration of 37 subreddits" (DE: „Eine Illustration · gezeichnet auf der echten Konfiguration mit 37 Subreddits“). The document version's figure label is now "An illustrative trend, spreading" (DE „Ein Beispieltrend breitet sich aus“).
+> - Home PaperScores: "six dimensions, with checklists aligned with CONSORT and related standards, and findings that point to the page they came from, where there is one" (DE to match). The case study's "every check carries … an evidence anchor" now reads "where the paper offers one" (EN and DE).
+> - Home LiveTranslate: "every line types itself out on screen" instead of "word by word" (DE „jede Zeile tippt sich auf dem Bildschirm aus“).
+> - Left for Constantin, as marked: PaperScores offline/link, the OIDC "one sign-in" H2 (and `history.ts:61`). The H2's "medical research" stays: PaperScores harvests medical papers, and the example journal is psychology.
+
 - **Evidence and fixes:**
   - **PaperScores is not offline.** `paperscores/en.mdx:59` and DE say "The public site is offline for now", but `paperscores-web.vercel.app` returns 200 with the live app; only paperscores.com returns 503. Constantin chooses: link the Vercel deployment, or take it down.
   - **The home Signals note says "A replay with a planted trend · the subreddits are its real configuration"** (`src/i18n/home.ts:131`, DE `:240`). The cascade drawn is hand-coded edges (`src/thread/stations/signals.ts:57-75`), not WGRA replay output; only the subreddit list is real.
@@ -489,6 +536,8 @@ The full content review, with all 33 German suggestions and the per-project fact
 
 ### S1. Incomplete favicon set and no web manifest
 **should** · effort S
+> **Fixed (16 Oct).** `scripts/gen/icons.mjs` makes `favicon.ico` (16/32/48), `apple-touch-icon.png` (180, opaque) and `icon-192/512.png` from `favicon.svg`; `site.webmanifest` as proposed; all linked in `Base.astro`.
+
 - **Evidence:** only `/favicon.svg` exists (`Base.astro:109`). These all return 404: `/favicon.ico` (still requested by RSS readers, some crawlers and older browsers), `/apple-touch-icon.png` (iOS home screen and Safari bookmarks) and `/manifest.webmanifest`.
 - **Fix:**
   - Generate from the existing "M" mark: `favicon.ico` (16 + 32 px), a 180×180 `apple-touch-icon.png` on an opaque `#0B0B0C` background, and 192/512 PNG icons.
@@ -497,11 +546,15 @@ The full content review, with all 33 German suggestions and the per-project fact
 
 ### S2. The 404 is English-first, even under /de/
 **should** · effort S
+> **Fixed (16 Oct).** `src/pages/de/404.astro`, German first with an English line; the build moves it to `dist/de/404.html` (`scripts/build/post-build.mjs`), and `wrangler.jsonc` has `not_found_handling: "404-page"`. The root 404 keeps both languages for German visitors who mistype a path without `/de/`.
+
 - **Evidence:** `/de/gibts-nicht/` returns 404 with the English page: English nav, "Not found" first, and no language switch (`src/pages/404.astro`).
 - **Fix:** add `src/pages/de/404.astro`. With `not_found_handling: "404-page"`, Cloudflare serves the nearest `404.html` up the path, so `/de/*` misses get the German one. See also L1.
 
 ### S3. Trailing slashes and duplicate URLs
 **should** · effort S
+> **Fixed (16 Oct).** `trailingSlash: "always"`; `verify-dist` fails on internal page links without a slash; `html_handling: "auto-trailing-slash"` in `wrangler.jsonc`. The curl checks after deploy are still to do.
+
 - **Evidence:**
   - Locally, `/work` and `/work/` both return 200, as does `/index.html` (`trailingSlash: "ignore"`, `astro.config.mjs:8`). Canonicals point at the slash version, so this is safe, but dev and prod differ.
   - On Cloudflare, `html_handling: "auto-trailing-slash"` (the default) answers `/work` with a 307 to `/work/`.
@@ -550,6 +603,8 @@ The full content review, with all 33 German suggestions and the per-project fact
 
 ### X1. The GPS-tagged portrait original isn't git-ignored, and the repo is planned to be public
 **launch-blocker** · effort S
+> **Fixed (16 Oct).** `.gitignore` excludes `data/sources/portrait/` (written before `git init`) plus `.env*`, `.wrangler/`, test and Lighthouse output. `verify-dist` now fails on GPS EXIF or XMP in any image in `dist/`, and on the email in plain, URL-encoded or entity form in any text file. Both were checked against a planted file. The original is still in `data/sources/portrait/`, ignored, not moved.
+
 - **Evidence:** `data/sources/portrait/constantin-portrait.jpeg` (512 KB) has a 10 KB EXIF block (iPhone 12 Pro, 2024-02-17, GPS per the hand-over). `.gitignore` lists only `node_modules dist .astro .cache .DS_Store`.
 - **Fix:**
   - Add `data/sources/portrait/` to `.gitignore` before `git init`; better, move the original out of the repo.
@@ -558,6 +613,8 @@ The full content review, with all 33 German suggestions and the per-project fact
 
 ### X2. No security headers or CSP for the Cloudflare deploy
 **launch-blocker** · effort S–M
+> **Fixed (16 Oct), configuration only, not deployed.** `public/_headers` has the CSP and headers proposed here plus the cache rules (P8). The build replaces a placeholder with the hashes of the inline scripts it finds (3 today). `verify-dist` fails on any inline script the CSP doesn't allow, on inline event handlers and on resources from other origins. `verify-browser` serves `dist/` with these headers and fails on any CSP violation. CSP stays in the header, not Astro's `security.csp`, so the `style=""` attributes keep working. `wrangler.jsonc`: static assets from `./dist`, `404-page`, `auto-trailing-slash`. Still to do after deploy: check with curl or securityheaders.com.
+
 - **Evidence:**
   - There is no `public/_headers` and no `wrangler.jsonc`.
   - Each page has three inline executable scripts: the `js` class script (57 B, `Base.astro:110-112`), the home pre-paint gate (479 B, `Home.astro:31-41`) and the Email upgrade module, which Astro inlines (492 B).
@@ -600,6 +657,8 @@ The full content review, with all 33 German suggestions and the per-project fact
 
 ### X4. Preview deploys must not be indexed
 **should** · effort S
+> **Partly fixed (16 Oct).** `_headers` sends `X-Robots-Tag: noindex` for `https://:worker.:account.workers.dev/*`. Check on the first preview deploy that the host pattern matches. `robots.txt` doesn't yet differ for previews.
+
 - **Evidence:** a `*.workers.dev` preview would serve the same `Allow: /` robots.txt, and its canonicals point at metz.uk. Drafts and unfinished work become crawlable.
 - **Fix:** for non-production builds (an env var), emit `X-Robots-Tag: noindex` plus `Disallow: /`, or put previews behind Cloudflare Access.
 
@@ -613,6 +672,8 @@ The full content review, with all 33 German suggestions and the per-project fact
 
 ### E1. Not a git repository
 **launch-blocker** · effort S
+> **Fixed (16 Oct), locally.** `git init` on `main` after the `.gitignore` (X1), with the repo-local identity `Constantin Metz <constantin@metz.uk>`. No gitleaks was installed, so a pattern scan ran instead (keys, tokens, private keys, emails, image GPS): clean. One baseline commit, `6ceacb4`, holds the site as reviewed; this pass's fixes are uncommitted on top, for review. No remote, no push.
+
 - **Evidence:** `git status` fails with "not a git repository". Nothing is versioned, including the generated data and the hand-tuned shaders.
 - **Fix:**
   1. Fix `.gitignore` first (X1), and add `.env*`, `.wrangler/`, `test-results/`, `playwright-report/` and `.lighthouseci/`.
@@ -629,6 +690,8 @@ The full content review, with all 33 German suggestions and the per-project fact
 
 ### E3. No tests
 **should** · effort M
+> **Partly fixed (16 Oct).** `npm run verify` now includes `scripts/verify-browser.mjs` (headless Chrome over CDP, no new dependencies). It checks: no overflow at 390 and 320 px on every page; AX headings with the thread on vs `?nothread`; find; Tab through the thread; phone-image deferral; idle and covered frame rates; context loss at a station and below the thread; console errors and CSP violations. Not done: Vitest units, WebKit, language-switch and anchor tests (R3 isn't fixed).
+
 - **Evidence:** there are no Vitest or Playwright configs, although the plan specified both. `verify-dist.mjs` is good but static.
 - **Fix:**
   - **Vitest:**
@@ -651,6 +714,8 @@ The full content review, with all 33 German suggestions and the per-project fact
 
 ### E4. 14 of 36 pages scroll sideways on phones
 **launch-blocker** · effort S
+> **Fixed (16 Oct).** `.case__body .prose { width: 100%; min-width: 0 }` and `.post { grid-template-columns: minmax(0, 1fr) }`. The new browser check also found `/de/projekte/carcost/` 7 px too wide at 320 px ("Reisekostenrechner" in the next-project link), fixed with `hyphens: auto; overflow-wrap: anywhere`. Now 0 of 40 pages are wider than the screen, at 390 or 320 px.
+
 I filed this under engineering because a test would have caught it, but it is a layout bug.
 - **Evidence:**
   - At 390 px, the page width is 591–700 px on 14 pages:
@@ -896,6 +961,8 @@ The verdict: better than most translations. Quotes, number formats (1.000; 90,6 
 - "the piece I got most right at 18" → "the piece that has aged best".
 
 ## Appendix B: Fact-check details (read-only passes over the source repos and `gh api`)
+
+> **Partly fixed (16 Oct).** Corrected in EN and DE: Signals 30–77 %, 3.15×, feeds of up to 25 subreddits, interims off screen and lines typed out, "rows of daily counts"; CarCost €70,000 plus the €100,000 cap from July 2025, and the demo key's test data; travel calculator "three places"; Lexicon Bluff "only the reader sees the texts"; segno "the README credits validator.js"; Zenarios coverage gates per layer, Switzerland, the Netherlands and New Zealand tolerances, "pseudonymous… on by default"; History "in 2021, reviews of 28 pull requests"; the home 2020 step ("React widgets, Storybook, CMS sites"). Not touched, as asked: everything in the posts (OIDC and Thread post), the Mac availability, and Lexicon Bluff's `years: "2026"` (the case study already names the 2024 sketch). The German counterparts are factual fixes; they still need Constantin's German review (C5).
 
 **Verified and solid.** Expert click-throughs will land well on:
 - **Zenarios:**
