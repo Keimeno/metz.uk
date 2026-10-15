@@ -329,6 +329,11 @@ const heroAlt =
     grid-template-columns: minmax(0, 1fr);
     justify-items: start;
   }
+  /* Fill the column, never wider: a long code line scrolls inside its <pre>, not the page. */
+  .case__body .prose {
+    width: 100%;
+    min-width: 0;
+  }
   @media (min-width: 1100px) {
     .case__body {
       grid-template-columns: minmax(0, 3fr) minmax(0, 9fr);
@@ -354,6 +359,9 @@ const heroAlt =
     text-decoration: none;
   }
   .case__next-title {
+    /* Long German compounds ("Reisekostenrechner") break rather than widen a narrow phone. */
+    hyphens: auto;
+    overflow-wrap: anywhere;
     font-size: clamp(36px, 5vw, 72px);
     font-weight: 500;
     letter-spacing: -0.045em;

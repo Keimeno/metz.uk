@@ -87,6 +87,8 @@ const ldNodes = postNodes(post, locale);
 <style>
   .post {
     display: grid;
+    /* One column that can't grow past the screen, so long code lines scroll inside their <pre>. */
+    grid-template-columns: minmax(0, 1fr);
     justify-items: center;
   }
   .post > * {
