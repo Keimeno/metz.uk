@@ -96,7 +96,8 @@ OUT=/tmp/shots BASE=http://localhost:4321/de/ node scripts/dev/cdp-shots.mjs 390
 - `src/assets/fonts/`: Geist and Geist Mono cut down to the characters the site uses, from the
   upstream variable fonts in `data/sources/fonts/` (OFL-1.1). After adding text with new
   characters, `npm run verify` says so: `npm run build && node scripts/gen/fonts.mjs` (needs `uv`).
-- The favicon set (`npm run gen:icons`) and the Zenarios phone picture in AVIF and WebP
+- The favicon set (`npm run gen:icons`: the thread's M, ending in its nib) and the Zenarios
+  phone picture in AVIF and WebP
   (`node scripts/gen/phone.mjs [source]`; a source 960 px or wider adds 2× files).
 - `data/sources/portrait/`: the portrait original. It carries GPS, so it is git-ignored; it never
   ships (`node scripts/gen/portrait.mjs` makes the stripped copies).
