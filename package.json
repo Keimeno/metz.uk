@@ -15,7 +15,8 @@
     "verify:dist": "node scripts/verify-dist.mjs",
     "verify:browser": "node scripts/verify-browser.mjs",
     "gen:icons": "node scripts/gen/icons.mjs",
-    "gen:stills": "node scripts/gen/stills.mjs"
+    "gen:stills": "node scripts/gen/stills.mjs",
+    "indexnow": "node scripts/deploy/indexnow.mjs"
   },
   "dependencies": {
     "@astrojs/mdx": "^8.1.0",

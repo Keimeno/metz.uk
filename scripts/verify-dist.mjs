@@ -7,9 +7,9 @@
 // the sitemap lists exactly the indexable pages, with the same alternates as the pages, and the
 // portrait for the about pages; every og:image exists at the size the page claims; profile pages
 // carry the profile:* tags; titles fit in 65 characters and descriptions in 50–170 (errors on
-// indexable pages, warnings on drafts); llms.txt links only indexable pages. With the full git
-// history, every sitemap URL has a <lastmod>, every profile page a dateCreated and dateModified,
-// and llms.txt a "Last updated" line (src/lib/dates.ts).
+// indexable pages, warnings on drafts); llms.txt links only indexable pages; the IndexNow key file
+// is there. With the full git history, every sitemap URL has a <lastmod>, every profile page a
+// dateCreated and dateModified, and llms.txt a "Last updated" line (src/lib/dates.ts).
 //
 // Privacy and security: the email address never appears in plain text in any file; no image
 // carries GPS or XMP metadata; dist/_headers has a CSP whose hashes cover every inline script, and
@@ -379,6 +379,13 @@ else {
   if (NEVER.test(llms)) fail("llms.txt", `mentions "${llms.match(NEVER)[0]}"`);
 }
 
+// IndexNow (scripts/deploy/indexnow.mjs): one key file at the root, named after its content.
+const indexNowKeys = readdirSync(DIST).filter((name) => /^[a-f0-9]{32}\.txt$/.test(name));
+if (indexNowKeys.length !== 1)
+  problems.push(`IndexNow: want one <key>.txt at the root, found ${indexNowKeys.length}`);
+else if (readFileSync(join(DIST, indexNowKeys[0]), "utf8").trim() !== indexNowKeys[0].slice(0, -4))
+  problems.push(`IndexNow: ${indexNowKeys[0]} doesn't contain its own name`);
+
 // No plain email anywhere: pages, feeds, sitemap, llms.txt, scripts, styles, _headers.
 for (const file of all) {
   if (!TEXT_TYPES.has(extname(file))) continue;
@@ -497,7 +504,7 @@ console.log(
 console.log(
   `✓ SEO: JSON-LD @ids resolve, og:images exist at their size, titles ≤ ${TITLE_MAX}, descriptions ${DESCRIPTION.join("–")}; ` +
     `sitemap lists the ${sitemapCount} indexable pages${gitHistory ? ", each with a lastmod" : ""}, ` +
-    `and ${sitemapImages} image(s); robots.txt and llms.txt check out.`
+    `and ${sitemapImages} image(s); robots.txt, llms.txt and the IndexNow key check out.`
 );
 console.log(
   `✓ Privacy and security: no plain email in ${all.length} files, no GPS/XMP in images, the CSP allows ` +

@@ -28,6 +28,10 @@ Tab, and that a lost WebGL context leaves the full document.
 Cloudflare Workers, static assets only: `wrangler.jsonc` serves `dist/`, `public/_headers` holds the
 security and cache headers. Nothing here deploys by itself.
 
+After a deploy, `npm run indexnow` tells Bing and the other IndexNow engines what changed
+(`-- --since 2026-10-16` for pages changed since then, `-- --dry-run` to see the request first).
+Its key is `public/<key>.txt`.
+
 The sitemap's `<lastmod>` and the pages' `dateModified` come from the git history of each page's
 files (`src/lib/pages.ts`). A build without the history (no `.git`, or a shallow clone) leaves them
 out and says so in the log.
