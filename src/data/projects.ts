@@ -32,6 +32,8 @@ export interface ProjectSchema {
   /** For source code. */
   language?: string;
   runtime?: string;
+  /** For apps: what it costs to get. Only what the store says; no ratings until there are real ones. */
+  offers?: { price: number; currency: string };
 }
 
 export interface ProjectDef {
@@ -64,6 +66,7 @@ export const PROJECTS = [
       id: "https://zenarios.com/#app",
       category: "FinanceApplication",
       operatingSystem: "iOS 16.4 or later",
+      offers: { price: 0, currency: "EUR" },
     },
   },
   {

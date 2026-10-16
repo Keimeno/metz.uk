@@ -2,10 +2,12 @@
 // alternates (en, de, x-default), exactly one <h1>, and internal links that resolve. Also enforces
 // two content rules: employers are named only on the history pages, and a few things never appear.
 //
-// SEO: every page's JSON-LD parses and each @id it points to is defined on the page; the sitemap
-// lists exactly the indexable pages, with the same alternates as the pages; every og:image exists at
-// the size the page claims; titles fit in 65 characters and descriptions in 50–170 (errors on
-// indexable pages, warnings on drafts); llms.txt links only indexable pages.
+// SEO: every page's JSON-LD parses and each @id it points to is defined on the page; the Person has
+// his given and family name and portrait crops that exist at their size (50,000 pixels or more);
+// the sitemap lists exactly the indexable pages, with the same alternates as the pages; every
+// og:image exists at the size the page claims; profile pages carry the profile:* tags; titles fit
+// in 65 characters and descriptions in 50–170 (errors on indexable pages, warnings on drafts);
+// llms.txt links only indexable pages.
 //
 // Privacy and security: the email address never appears in plain text in any file; no image
 // carries GPS or XMP metadata; dist/_headers has a CSP whose hashes cover every inline script, and
@@ -46,6 +48,8 @@ const TEXT_TYPES = new Set([
   "",
 ]);
 const IMAGE_TYPES = new Set([".jpg", ".jpeg", ".png", ".webp", ".avif", ".ico"]);
+/** Google's minimum for structured-data images. */
+const MIN_IMAGE_PIXELS = 50_000;
 
 const all = [];
 const walk = (dir) => {
@@ -89,6 +93,18 @@ const meta = (html, key) => {
     .map((m) => m[0])
     .find((t) => attr(t, "property") === key || attr(t, "name") === key);
   return tag ? unescape(attr(tag, "content")) : undefined;
+};
+/** A JPEG's size, from its first start-of-frame segment. */
+const jpegSize = (file) => {
+  const b = readFileSync(file);
+  if (b[0] !== 0xff || b[1] !== 0xd8) return null;
+  for (let i = 2; i + 9 < b.length; i += 2 + b.readUInt16BE(i + 2)) {
+    if (b[i] !== 0xff) return null;
+    const marker = b[i + 1];
+    if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker))
+      return { height: b.readUInt16BE(i + 5), width: b.readUInt16BE(i + 7) };
+  }
+  return null;
 };
 /** A PNG's size, from its IHDR chunk. */
 const pngSize = (file) => {
@@ -202,6 +218,7 @@ function checkJsonLd(path, p) {
   walk(data["@graph"]);
 
   for (const id of SHARED_IDS) if (!defined.has(id)) fail(path, `JSON-LD has no ${id}`);
+  checkPerson(path, defined.get(`${SITE}/#person`));
   for (const id of new Set(refs))
     if (!defined.has(id) && !SHARED_IDS.has(id))
       fail(path, `JSON-LD points at ${id}, which isn't defined`);
@@ -226,8 +243,29 @@ function checkJsonLd(path, p) {
   if (NEVER.test(p.jsonLd[0])) fail(path, `JSON-LD mentions "${p.jsonLd[0].match(NEVER)[0]}"`);
 }
 
+/** The Person: his name in parts, and portrait crops that exist at the size claimed, big enough. */
+function checkPerson(path, person) {
+  if (!person) return;
+  if (person.givenName !== "Constantin" || person.familyName !== "Metz")
+    fail(path, "the Person has no givenName/familyName");
+  const images = [person.image ?? []].flat();
+  if (!images.length) fail(path, "the Person has no image");
+  for (const img of images) {
+    const file = typeof img.url === "string" && join(DIST, img.url.replace(SITE, ""));
+    const size = file && existsSync(file) ? jpegSize(file) : null;
+    if (!size) fail(path, `the Person's image ${img.url} isn't a JPEG in dist`);
+    else if (size.width !== img.width || size.height !== img.height)
+      fail(path, `the Person's image ${img.url} is ${size.width}×${size.height}, not ${img.width}×${img.height}`);
+    else if (size.width * size.height < MIN_IMAGE_PIXELS)
+      fail(path, `the Person's image ${img.url} has fewer than ${MIN_IMAGE_PIXELS} pixels`);
+  }
+}
+
 /** og:image and twitter:image: present, the file exists, at the size the tags say. */
 function checkSocial(path, p) {
+  if (meta(p.html, "og:type") === "profile")
+    for (const key of ["profile:first_name", "profile:last_name", "profile:username"])
+      if (!meta(p.html, key)) fail(path, `og:type is profile, but there's no ${key}`);
   const image = meta(p.html, "og:image");
   if (!image) return fail(path, "no og:image");
   if (!image.startsWith(`${SITE}/`)) return fail(path, `og:image is off-site: ${image}`);

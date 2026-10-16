@@ -63,7 +63,7 @@ export const GET: APIRoute = async ({ site }) => {
       : []),
     "## Elsewhere",
     "",
-    ...PERSON.profiles.map((p) => `- ${p.label}: ${p.href}`),
+    ...[...PERSON.profiles, ...PERSON.elsewhere].map((p) => `- ${p.label}: ${p.href}`),
     "- Zenarios: https://zenarios.com",
     ...(appStore ? [`- Zenarios on the App Store: ${appStore}`] : []),
     "",

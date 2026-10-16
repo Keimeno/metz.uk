@@ -36,12 +36,20 @@ export interface PageLd {
   mainEntity?: string | Node;
   /** More nodes: the project, the post. */
   nodes?: Node[];
+  /** The page is his own writing about his work (case studies): the Person is its author. */
+  author?: boolean;
   /** The history pages only: the Person gets `worksFor` and `alumniOf`. */
   employers?: boolean;
 }
 
+/** His profiles: the ones on the about page, and the others once they link back to metz.uk. */
+export const personSameAs = (): string[] => [
+  ...PERSON.profiles.map((p) => p.href),
+  ...PERSON.elsewhere.filter((p) => p.linksBack).map((p) => p.href),
+];
+
 function person(locale: Locale, employers: boolean): Node {
-  const hasPortrait = publicFileExists(PERSON.portrait.src);
+  const images = PERSON.portrait.crops.filter((c) => publicFileExists(c.src));
   const org = (o: { name: string; url?: string }) => ({
     "@type": "Organization",
     name: o.name,
@@ -51,6 +59,8 @@ function person(locale: Locale, employers: boolean): Node {
     "@type": "Person",
     "@id": IDS.person,
     name: PERSON.name,
+    givenName: PERSON.givenName,
+    familyName: PERSON.familyName,
     alternateName: PERSON.alternateName,
     url: abs("/"),
     jobTitle: PERSON.jobTitle[locale],
@@ -66,18 +76,18 @@ function person(locale: Locale, employers: boolean): Node {
     },
     knowsAbout: PERSON.knowsAbout,
     knowsLanguage: PERSON.knowsLanguage,
-    ...(hasPortrait
+    ...(images.length
       ? {
-          image: {
+          image: images.map((c) => ({
             "@type": "ImageObject",
-            url: abs(PERSON.portrait.src),
-            width: PERSON.portrait.width,
-            height: PERSON.portrait.height,
+            url: abs(c.src),
+            width: c.width,
+            height: c.height,
             caption: PERSON.name,
-          },
+          })),
         }
       : {}),
-    sameAs: [...PERSON.profiles.map((p) => p.href), ...PERSON.sameAs],
+    sameAs: personSameAs(),
     ...(employers
       ? { worksFor: EMPLOYERS.current.map(org), alumniOf: EMPLOYERS.past.map(org) }
       : {}),
@@ -134,6 +144,7 @@ export function pageGraph(opts: {
       description,
       inLanguage: locale,
       isPartOf: ref(IDS.website),
+      ...(ld.author ? { author: ref(IDS.person) } : {}),
       ...(ld.about ? { about: ref(ld.about) } : {}),
       ...(ld.mainEntity
         ? { mainEntity: typeof ld.mainEntity === "string" ? ref(ld.mainEntity) : ld.mainEntity }
@@ -205,6 +216,15 @@ export function projectNode(project: Project, locale: Locale): Node {
     ...(isApp && schema.category ? { applicationCategory: schema.category } : {}),
     ...(isApp ? { operatingSystem: schema.operatingSystem ?? "Any (web browser)" } : {}),
     ...(link("appStore") ? { installUrl: link("appStore") } : {}),
+    ...(schema.offers
+      ? {
+          offers: {
+            "@type": "Offer",
+            price: schema.offers.price,
+            priceCurrency: schema.offers.currency,
+          },
+        }
+      : {}),
     ...(schema.type === "SoftwareSourceCode"
       ? {
           ...(repos[0] ? { codeRepository: repos[0].href } : {}),

@@ -18,6 +18,7 @@ import {
   type Alternates,
   type Locale,
 } from "../i18n/routes";
+import { PERSON } from "../data/person";
 import { useT } from "../i18n/ui";
 import { OG_HEIGHT, OG_WIDTH, ogImagePath } from "../lib/og";
 import { pageGraph, serializeLd, type PageLd } from "../lib/seo";
@@ -90,6 +91,13 @@ if (import.meta.env.DEV && alternates) {
 
     <meta property="og:site_name" content="Constantin Metz" />
     <meta property="og:type" content={ogType} />
+    {ogType === "profile" && (
+      <>
+        <meta property="profile:first_name" content={PERSON.givenName} />
+        <meta property="profile:last_name" content={PERSON.familyName} />
+        <meta property="profile:username" content={PERSON.alternateName} />
+      </>
+    )}
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     {canonical && <meta property="og:url" content={canonical} />}
