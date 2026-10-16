@@ -2,6 +2,8 @@
 // small server on dist/ that behaves like Cloudflare (trailing-slash redirects, the nearest
 // 404.html, the headers from _headers, so the CSP applies).
 // - No page is wider than a 390 px phone, or a 320 px one.
+// - The home page's name stays on its first screen when the viewport grows to the page's height,
+//   as Google's renderer does before its screenshot.
 // - With the thread running, the home page shows assistive technology the same headings as the
 //   document version (`?nothread`), find-in-page reaches the station text, and Tab reaches every
 //   link in the thread and brings its panel up.
@@ -32,6 +34,8 @@ const PHONES = [
   { width: 320, height: 568, deviceScaleFactor: 2 },
 ];
 const DESKTOP = { width: 1440, height: 900, deviceScaleFactor: 1 };
+/** Google's smartphone renderer, before it grows the viewport to the page. */
+const GOOGLEBOT = { width: 412, height: 732, deviceScaleFactor: 1 };
 const HOMES = ["/", "/de/"];
 
 const problems = [];
@@ -320,7 +324,25 @@ for (const phone of PHONES) {
   }
 }
 
-// ── 2. The thread, for assistive technology, the keyboard and find-in-page ─────────────────
+// ── 2. A crawler's tall viewport ───────────────────────────────────────────────────────────
+// Google's renderer loads a page at phone size, then grows the viewport once to the page's height
+// (up to about 12,000 px) and screenshots the top. The name has to stay on the first screen.
+const tallViewport = [];
+for (const home of HOMES) {
+  await viewport(GOOGLEBOT, true);
+  await open(home);
+  const grown = Math.min(await evaluate("document.documentElement.scrollHeight"), 12140);
+  await viewport({ ...GOOGLEBOT, height: grown }, true);
+  await sleep(1000);
+  const bottom = await evaluate(
+    `Math.round(document.querySelector("[data-name]").getBoundingClientRect().bottom)`
+  );
+  if (bottom > GOOGLEBOT.height)
+    fail(`${home} @412×${grown}`, `the name ends ${bottom} px down, below the first screen`);
+  else tallViewport.push(`${home} ${grown} px`);
+}
+
+// ── 3. The thread, for assistive technology, the keyboard and find-in-page ─────────────────
 await viewport(DESKTOP, false);
 const summary = [];
 for (const home of HOMES) {
@@ -401,7 +423,7 @@ for (const home of HOMES) {
     fail(home, `the thread draws ${idleFps} frames/s while nothing moves (want ≤ 25)`);
   if (pastFps > 1) fail(home, `the thread draws ${pastFps} frames/s under the page below (want 0)`);
 
-  // ── 3. A lost WebGL context, at a station and below the thread ──────────────────────────
+  // ── 4. A lost WebGL context, at a station and below the thread ──────────────────────────
   const loseAt = async (setup) => {
     await open(home);
     await threadReady();
@@ -492,6 +514,9 @@ if (problems.length) {
   process.exit(1);
 }
 console.log(`✓ ${overflowChecks} page loads at 390 and 320 px: none wider than the screen.`);
+console.log(
+  `✓ Grown to the page's height like Google's renderer (${tallViewport.join(", ")}), the name stays on the first 732 px.`
+);
 for (const line of summary)
   console.log(`✓ ${line}; a lost WebGL context leaves the full document, reader in place.`);
 console.log("✓ No console errors, no CSP violations.");

@@ -407,6 +407,13 @@ const phoneSources = pictureSources(phoneSrc, 480);
     height: 100lvh;
     overflow: hidden;
   }
+  /* The intro is one screen, but never taller than two and a half widths. No phone or monitor is
+     that tall; a renderer that grows its viewport to the page's height is (Google's does, to about
+     12,000 px), and would centre the name thousands of pixels down, off its screenshot. */
+  .station--intro .station__layer {
+    height: min(100vh, 250vw);
+    height: min(100lvh, 250vw);
+  }
   /* With the thread running, every station's text sits in one fixed layer over the canvas and
      the timeline decides what shows; the sections only provide the scroll length. */
   :global(.thread-on) .station__layer {

@@ -19,8 +19,9 @@ npm run verify    # checks dist/, then the built site in headless Chrome (see be
 links, content rules, SEO, no plain email, no GPS in images, a CSP covering every inline script,
 and font coverage. `verify:browser` loads every page in headless Chrome (Google Chrome, or
 `CHROME=/path`), served the way Cloudflare will serve it. It checks that no page is wider than a
-390 or 320 px phone, that the thread exposes the same headings as `?nothread`, find and Tab, and
-that a lost WebGL context leaves the full document.
+390 or 320 px phone, that the home page's name stays on its first screen when a crawler grows the
+viewport to the page's height, that the thread exposes the same headings as `?nothread`, find and
+Tab, and that a lost WebGL context leaves the full document.
 
 ## Deploy
 
