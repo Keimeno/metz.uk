@@ -1,6 +1,10 @@
 // Every page of the site, in both languages: what the sitemap lists, what llms.txt links and which
 // social cards get drawn. Built from the route map and the content collections, so a new project or
 // post shows up in all three at once. The 404 is the one page left out.
+//
+// Each page also names the files its words come from, and gets its dates from their git history
+// (src/lib/dates.ts). Templates, styles and interface strings are left out on purpose: a new
+// header doesn't make every page news.
 
 import { HOME } from "../i18n/home";
 import {
@@ -14,7 +18,10 @@ import {
   type RouteKey,
 } from "../i18n/routes";
 import { useT } from "../i18n/ui";
+import { PERSON } from "../data/person";
 import { getPosts, getProjects } from "./content";
+import { datesOf, type PageDates } from "./dates";
+import { publicFileExists } from "./files";
 import type { OgCard } from "./og";
 
 export interface SitePage {
@@ -23,10 +30,32 @@ export interface SitePage {
   alternates: Alternates;
   /** Drafts are readable but kept out of search (noindex, no sitemap, no llms.txt). */
   indexable: boolean;
-  /** When the content last changed, where that's known (posts). */
-  lastmod?: Date;
+  /** First written and last changed: a post's own dates, else from git. Unknown without git. */
+  dates?: PageDates;
+  /** Pictures shown on the page, for the image sitemap (paths). */
+  images?: string[];
   card: OgCard;
 }
+
+/** The files each fixed page's words come from (folders end in "/"). */
+const STATIC_SOURCES: Record<RouteKey, string[]> = {
+  home: [
+    "src/components/home/",
+    "src/i18n/home.ts",
+    "src/generated/",
+    "data/sources/paperscores/",
+  ],
+  work: ["src/components/pages/WorkIndex.astro", "src/data/projects.ts", "src/content/projects/"],
+  about: [
+    "src/components/pages/AboutPage.astro",
+    "src/data/person.ts",
+    "public/constantin-metz.jpg",
+  ],
+  history: ["src/components/pages/HistoryPage.astro", "src/data/history.ts"],
+  writing: ["src/components/pages/WritingIndex.astro", "src/content/posts/"],
+  privacy: ["src/components/pages/LegalPage.astro", "src/data/legal.ts"],
+  imprint: ["src/components/pages/LegalPage.astro", "src/data/legal.ts"],
+};
 
 type CardCopy = Pick<OgCard, "eyebrow" | "title" | "subtitle">;
 
@@ -107,8 +136,20 @@ const STATIC_CARDS: Record<Exclude<RouteKey, "home">, Record<Locale, CardCopy>> 
   },
 };
 
-/** Every page, English then German for each. */
-export async function getSitePages(): Promise<SitePage[]> {
+let cached: Promise<SitePage[]> | undefined;
+
+/** Every page, English then German for each. Built once per build (afresh each time in dev). */
+export function getSitePages(): Promise<SitePage[]> {
+  if (import.meta.env.DEV) return buildSitePages();
+  return (cached ??= buildSitePages());
+}
+
+/** The page at `path`, if it's one of the site's pages (the 404 isn't). */
+export async function getSitePage(path: string): Promise<SitePage | undefined> {
+  return (await getSitePages()).find((p) => p.path === path);
+}
+
+async function buildSitePages(): Promise<SitePage[]> {
   const pages: SitePage[] = [];
 
   for (const key of Object.keys(ROUTES) as RouteKey[]) {
@@ -125,7 +166,17 @@ export async function getSitePages(): Promise<SitePage[]> {
               home: true,
             }
           : { path, ...STATIC_CARDS[key][locale] };
-      pages.push({ locale, path, alternates, indexable: true, card });
+      const images =
+        key === "about" && publicFileExists(PERSON.portrait.src) ? [PERSON.portrait.src] : undefined;
+      pages.push({
+        locale,
+        path,
+        alternates,
+        indexable: true,
+        dates: datesOf(STATIC_SOURCES[key]),
+        images,
+        card,
+      });
     }
   }
 
@@ -139,6 +190,11 @@ export async function getSitePages(): Promise<SitePage[]> {
         path: alternates[locale],
         alternates,
         indexable: true,
+        dates: datesOf([
+          "src/components/pages/CaseStudy.astro",
+          "src/data/projects.ts",
+          `src/content/projects/${def.slug}/${locale}.mdx`,
+        ]),
         card: {
           path: alternates[locale],
           eyebrow: useT(locale)("work.case"),
@@ -163,7 +219,7 @@ export async function getSitePages(): Promise<SitePage[]> {
         path: alternates[locale],
         alternates,
         indexable: !data.draft,
-        lastmod: data.updated ?? data.published,
+        dates: { created: data.published, modified: data.updated ?? data.published },
         card: {
           path: alternates[locale],
           eyebrow: useT(locale)("writing.title"),

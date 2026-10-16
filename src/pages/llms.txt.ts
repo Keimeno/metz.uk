@@ -1,11 +1,14 @@
 // llms.txt (llmstxt.org): who Constantin Metz is and where things are, for language models and AI
 // answer engines. English, with the German address of every page. Drafts are left out, and like
-// everything outside the history pages, it names no employers.
+// everything outside the history pages, it names no employers. "Last updated" is the newest change
+// to any page it lists (left out when the build has no git history).
 import type { APIRoute } from "astro";
 
 import { PERSON } from "../data/person";
 import { postPath, projectPath, route, type Locale, type RouteKey } from "../i18n/routes";
 import { getPosts, getProjects } from "../lib/content";
+import { isoDay } from "../lib/dates";
+import { getSitePages } from "../lib/pages";
 
 export const GET: APIRoute = async ({ site }) => {
   const abs = (path: string) => new URL(path, site).href;
@@ -14,12 +17,17 @@ export const GET: APIRoute = async ({ site }) => {
   const projects = await getProjects();
   const posts = (await getPosts()).filter((p) => !p.en.data.draft || !p.de.data.draft);
   const appStore = projects.flatMap((p) => p.def.links).find((l) => l.kind === "appStore")?.href;
+  const updated = (await getSitePages())
+    .filter((p) => p.indexable && p.dates)
+    .map((p) => p.dates!.modified)
+    .sort((a, b) => b.getTime() - a.getTime())[0];
 
   const lines = [
     `# ${PERSON.name}`,
     "",
     `> ${PERSON.name} (${PERSON.alternateName} on GitHub and GitLab) is a self-taught software engineer in Munich, Germany. He builds products end to end: the engine, the interface and the launch. This is his personal site, metz.uk, in English and in German.`,
     "",
+    ...(updated ? [`Last updated: ${isoDay(updated)}`, ""] : []),
     "- Based in Munich, Germany. Works with TypeScript, React and React Native, Node.js, Python and WebGL.",
     "- Now builds AI for industrial quoting at a Y Combinator startup.",
     "- Builds his own products alongside: the largest is Zenarios, a financial planning app for iPhone and Mac, designed and built alone.",

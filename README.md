@@ -28,6 +28,10 @@ Tab, and that a lost WebGL context leaves the full document.
 Cloudflare Workers, static assets only: `wrangler.jsonc` serves `dist/`, `public/_headers` holds the
 security and cache headers. Nothing here deploys by itself.
 
+The sitemap's `<lastmod>` and the pages' `dateModified` come from the git history of each page's
+files (`src/lib/pages.ts`). A build without the history (no `.git`, or a shallow clone) leaves them
+out and says so in the log.
+
 ## Languages
 
 Every page exists twice: English at `/`, German at `/de/` with German slugs.

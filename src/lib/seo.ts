@@ -12,6 +12,7 @@ import { route, postPath, projectPath, otherLocale, type Locale } from "../i18n/
 import { useT } from "../i18n/ui";
 import { SITE_URL } from "../site.mjs";
 import type { Post, Project } from "./content";
+import { isoDay, isoSeconds, type PageDates } from "./dates";
 import { publicFileExists } from "./files";
 import { OG_HEIGHT, OG_WIDTH, ogImagePath } from "./og";
 
@@ -123,6 +124,10 @@ function breadcrumbs(locale: Locale, crumbs: [string, string][], id: string): No
   };
 }
 
+/** A date from git to the second; a date set by hand (midnight, UTC) as just the day. */
+const isoDate = (d: Date) =>
+  d.getTime() % 86_400_000 === 0 ? isoDay(d) : isoSeconds(d);
+
 /** The whole graph for one page. `path` is null only for the 404, which gets the Person and the WebSite. */
 export function pageGraph(opts: {
   locale: Locale;
@@ -130,8 +135,10 @@ export function pageGraph(opts: {
   title: string;
   description: string;
   ld?: PageLd;
+  /** When the page was first written and last changed (src/lib/pages.ts), if known. */
+  dates?: PageDates;
 }): Node {
-  const { locale, path, title, description, ld = {} } = opts;
+  const { locale, path, title, description, ld = {}, dates } = opts;
   const graph: Node[] = [person(locale, ld.employers ?? false), website(locale)];
   if (path) {
     const url = abs(path);
@@ -144,6 +151,9 @@ export function pageGraph(opts: {
       description,
       inLanguage: locale,
       isPartOf: ref(IDS.website),
+      ...(dates
+        ? { dateCreated: isoDate(dates.created), dateModified: isoDate(dates.modified) }
+        : {}),
       ...(ld.author ? { author: ref(IDS.person) } : {}),
       ...(ld.about ? { about: ref(ld.about) } : {}),
       ...(ld.mainEntity

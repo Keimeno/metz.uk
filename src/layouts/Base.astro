@@ -21,6 +21,7 @@ import {
 import { PERSON } from "../data/person";
 import { useT } from "../i18n/ui";
 import { OG_HEIGHT, OG_WIDTH, ogImagePath } from "../lib/og";
+import { getSitePage } from "../lib/pages";
 import { pageGraph, serializeLd, type PageLd } from "../lib/seo";
 
 interface Props {
@@ -53,7 +54,8 @@ const path = alternates ? alternates[locale] : null;
 const canonical = path ? abs(path) : null;
 // Every page has its own card; the 404 borrows the home page's.
 const ogImage = abs(ogImagePath(path ?? route("home", locale)));
-const graph = pageGraph({ locale, path, title, description, ld });
+const dates = path ? (await getSitePage(path))?.dates : undefined;
+const graph = pageGraph({ locale, path, title, description, ld, dates });
 
 if (import.meta.env.DEV && alternates) {
   const here = Astro.url.pathname.replace(/\/?$/, "/");

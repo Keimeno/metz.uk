@@ -4,10 +4,12 @@
 //
 // SEO: every page's JSON-LD parses and each @id it points to is defined on the page; the Person has
 // his given and family name and portrait crops that exist at their size (50,000 pixels or more);
-// the sitemap lists exactly the indexable pages, with the same alternates as the pages; every
-// og:image exists at the size the page claims; profile pages carry the profile:* tags; titles fit
-// in 65 characters and descriptions in 50–170 (errors on indexable pages, warnings on drafts);
-// llms.txt links only indexable pages.
+// the sitemap lists exactly the indexable pages, with the same alternates as the pages, and the
+// portrait for the about pages; every og:image exists at the size the page claims; profile pages
+// carry the profile:* tags; titles fit in 65 characters and descriptions in 50–170 (errors on
+// indexable pages, warnings on drafts); llms.txt links only indexable pages. With the full git
+// history, every sitemap URL has a <lastmod>, every profile page a dateCreated and dateModified,
+// and llms.txt a "Last updated" line (src/lib/dates.ts).
 //
 // Privacy and security: the email address never appears in plain text in any file; no image
 // carries GPS or XMP metadata; dist/_headers has a CSP whose hashes cover every inline script, and
@@ -16,6 +18,7 @@
 //
 // Usage: npm run build && node scripts/verify-dist.mjs (`npm run verify` also runs the browser checks)
 
+import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { extname, join, relative } from "node:path";
 
@@ -50,6 +53,14 @@ const TEXT_TYPES = new Set([
 const IMAGE_TYPES = new Set([".jpg", ".jpeg", ".png", ".webp", ".avif", ".ico"]);
 /** Google's minimum for structured-data images. */
 const MIN_IMAGE_PIXELS = 50_000;
+/** Whether this checkout has the history the build dates pages from (not a shallow clone). */
+const gitHistory =
+  spawnSync("git", ["rev-parse", "--is-shallow-repository"], {
+    cwd: new URL("..", import.meta.url),
+    encoding: "utf8",
+  }).stdout?.trim() === "false";
+/** "2026-10-16", optionally with a time and zone. */
+const W3C_DATE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2}))?$/;
 
 const all = [];
 const walk = (dir) => {
@@ -233,6 +244,10 @@ function checkJsonLd(path, p) {
       fail(path, "ProfilePage's mainEntity isn't the Person");
     if (page.inLanguage !== p.lang) fail(path, `page node's inLanguage is ${page.inLanguage}`);
   }
+  if (page?.["@type"] === "ProfilePage" && gitHistory && !(page.dateCreated && page.dateModified))
+    fail(path, "the ProfilePage has no dateCreated/dateModified (from git)");
+  for (const key of ["dateCreated", "dateModified"])
+    if (page?.[key] && !W3C_DATE.test(page[key])) fail(path, `page node's ${key} is ${page[key]}`);
   const hasCrumbs = data["@graph"].some((n) => n["@type"] === "BreadcrumbList");
   if (!HOME_PAGES.has(path) && !hasCrumbs) fail(path, "no BreadcrumbList");
   if (HISTORY_PAGES.has(path)) {
@@ -293,6 +308,8 @@ const indexable = new Set(
 );
 const sitemapFile = join(DIST, "sitemap.xml");
 let sitemapCount = 0;
+let sitemapImages = 0;
+let withoutLastmod = 0;
 if (!existsSync(sitemapFile)) problems.push("sitemap.xml: missing");
 else {
   const listed = new Set();
@@ -308,6 +325,18 @@ else {
       continue;
     }
     if (!indexable.has(path)) fail("sitemap.xml", `${loc} is noindex (or the 404)`);
+    const lastmod = block.match(/<lastmod>([^<]+)<\/lastmod>/)?.[1];
+    if (lastmod && (!W3C_DATE.test(lastmod) || new Date(lastmod) > new Date()))
+      fail("sitemap.xml", `${loc}: <lastmod>${lastmod}</lastmod> isn't a date up to today`);
+    if (!lastmod) {
+      if (gitHistory) fail("sitemap.xml", `${loc} has no <lastmod>`);
+      else withoutLastmod++;
+    }
+    for (const [, image] of block.matchAll(/<image:loc>([^<]+)<\/image:loc>/g)) {
+      sitemapImages++;
+      if (!image.startsWith(`${SITE}/`) || !existsSync(join(DIST, image.slice(SITE.length))))
+        fail("sitemap.xml", `${loc}: image ${image} isn't in dist`);
+    }
     const links = Object.fromEntries(
       [...block.matchAll(/<xhtml:link\b[^>]*>/g)].map((m) => [
         attr(m[0], "hreflang"),
@@ -345,6 +374,8 @@ else {
     if (!indexable.has(path)) fail("llms.txt", `links ${url}, which isn't an indexable page`);
   }
   if (EMPLOYERS.test(llms)) fail("llms.txt", `names an employer: "${llms.match(EMPLOYERS)[0]}"`);
+  if (gitHistory && !/^Last updated: \d{4}-\d{2}-\d{2}$/m.test(llms))
+    fail("llms.txt", "no \"Last updated\" line");
   if (NEVER.test(llms)) fail("llms.txt", `mentions "${llms.match(NEVER)[0]}"`);
 }
 
@@ -449,6 +480,10 @@ else {
 }
 
 const count = pages.size;
+if (withoutLastmod)
+  console.warn(
+    `! sitemap.xml: ${withoutLastmod} URLs without <lastmod>; this checkout has no git history to date them.`
+  );
 if (warnings.length)
   console.warn(`! ${warnings.length} warning(s), on noindex pages:\n  ` + warnings.join("\n  "));
 if (problems.length) {
@@ -461,7 +496,8 @@ console.log(
 );
 console.log(
   `✓ SEO: JSON-LD @ids resolve, og:images exist at their size, titles ≤ ${TITLE_MAX}, descriptions ${DESCRIPTION.join("–")}; ` +
-    `sitemap lists the ${sitemapCount} indexable pages; robots.txt and llms.txt check out.`
+    `sitemap lists the ${sitemapCount} indexable pages${gitHistory ? ", each with a lastmod" : ""}, ` +
+    `and ${sitemapImages} image(s); robots.txt and llms.txt check out.`
 );
 console.log(
   `✓ Privacy and security: no plain email in ${all.length} files, no GPS/XMP in images, the CSP allows ` +
