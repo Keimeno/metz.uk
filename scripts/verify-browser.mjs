@@ -7,6 +7,9 @@
 // - The email address is never in a page's source or in what a script reads from it: before any
 //   interaction the link goes to the imprint and holds only reversed halves; the first interaction
 //   turns every address on the page into a mailto: link with the address in its text.
+// - A tap reaches what is under the finger on a phone: the home page's language switch, every link
+//   in the thread while its panel is showing (the scroll sections used to catch those taps), and
+//   a hit area of 44 × 44 px around each standalone header, footer and text link.
 // - With the thread running, the home page shows assistive technology the same headings as the
 //   document version (`?nothread`), find-in-page reaches the station text, and Tab reaches every
 //   link in the thread and brings its panel up.
@@ -376,6 +379,77 @@ for (const path of ["/", "/de/", "/about/", "/imprint/", "/de/impressum/", "/pri
       fail(path, `an email link wasn't upgraded on the first interaction (${l.href}, "${l.text}")`);
 }
 
+// ── 2c. Pressing things on a phone ─────────────────────────────────────────────────────────
+// A tap has to land on the link under the finger. The home page's language switch sits in a header
+// that ignores pointer events except for its links; the thread's links sit in fixed layers beneath
+// the scroll sections, which used to catch their taps; and standalone links need a 44 px target.
+const PRESSABLE =
+  ".site-header__mark, .site-header__nav a, .lang-switch, .site-footer__cols a, .site-footer__legal a, .site-footer__email, .text-link, .more";
+const PRESS_PAGES = ["/", "/de/", "/about/", "/work/", "/work/stet/", "/writing/", "/imprint/"];
+let pressed = 0;
+let sweeps = 0;
+await viewport(PHONES[0], true);
+for (const home of HOMES) {
+  await open(home);
+  await threadReady();
+  const height = await evaluate("document.documentElement.scrollHeight");
+  for (let y = 0; y < height; y += 600) {
+    await evaluate(`window.scrollTo(0, ${y})`);
+    await sleep(450);
+    sweeps++;
+    const bad = await evaluate(`(() => {
+      const bad = [];
+      const hitAt = (el, dy = 0) => {
+        const r = el.getBoundingClientRect();
+        return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2 + dy);
+      };
+      const lang = document.querySelector(".site-head .lang-switch");
+      if (lang && !document.documentElement.classList.contains("thread-past"))
+        for (const dy of [-18, 0, 18]) {
+          const hit = hitAt(lang, dy);
+          if (!(hit && lang.contains(hit))) bad.push("language switch, " + dy + " px: " + hit?.tagName + "." + hit?.className);
+        }
+      for (const a of document.querySelectorAll(".station__layer a")) {
+        const panel = a.closest("[data-cue]");
+        if (!panel || panel.hasAttribute("data-off")) continue;
+        const r = a.getBoundingClientRect();
+        if (r.top < 0 || r.bottom > innerHeight) continue;
+        const hit = hitAt(a);
+        if (hit && (a.contains(hit) || hit.closest(".curtain"))) continue;
+        bad.push('"' + a.textContent.trim().slice(0, 24) + '": ' + hit?.tagName + "." + hit?.className);
+      }
+      return bad;
+    })()`);
+    for (const b of new Set(bad))
+      fail(`${home} scrolled to ${y}`, `a tap doesn't reach its link: ${b}`);
+  }
+}
+for (const path of PRESS_PAGES) {
+  await open(path);
+  await threadReady().catch(() => {});
+  const count = await evaluate(`document.querySelectorAll(${JSON.stringify(PRESSABLE)}).length`);
+  for (let i = 0; i < count; i++) {
+    const r = await evaluate(`(() => {
+      const el = document.querySelectorAll(${JSON.stringify(PRESSABLE)})[${i}];
+      if (getComputedStyle(el).visibility === "hidden" || !el.getClientRects().length) return null;
+      el.scrollIntoView({ block: "center" });
+      const b = el.getBoundingClientRect();
+      const cx = b.left + b.width / 2, cy = b.top + b.height / 2;
+      const miss = [];
+      for (const [dx, dy] of [[0, 0], [0, -20], [0, 20], [-20, 0], [20, 0]]) {
+        const x = cx + dx, y = cy + dy;
+        if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) continue;
+        const hit = document.elementFromPoint(x, y);
+        if (!(hit && el.contains(hit))) miss.push(dx + "," + dy + ":" + hit?.tagName + "." + String(hit?.className).slice(0, 24));
+      }
+      return { name: (el.textContent || el.getAttribute("aria-label") || el.className).trim().slice(0, 24), miss };
+    })()`);
+    if (!r) continue;
+    pressed++;
+    if (r.miss.length) fail(path, `"${r.name}" has no 44 px target (${r.miss.join(" ")})`);
+  }
+}
+
 // ── 3. The thread, for assistive technology, the keyboard and find-in-page ─────────────────
 await viewport(DESKTOP, false);
 const summary = [];
@@ -555,6 +629,9 @@ for (const line of summary)
   console.log(`✓ ${line}; a lost WebGL context leaves the full document, reader in place.`);
 console.log(
   `✓ ${emailLinks} email links: no @ or mailto: in the source, drawn by CSS, mailto: after the first interaction.`
+);
+console.log(
+  `✓ Taps reach their links on a phone: the language switch and every showing link of the thread at ${sweeps} scroll positions, and a 44 px target around ${pressed} header, footer and text links.`
 );
 console.log("✓ No console errors, no CSP violations.");
 process.exit(0);
