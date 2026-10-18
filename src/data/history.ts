@@ -211,6 +211,6 @@ export const OLD_SITE = {
   name: "keimeno.party",
   year: 2020,
   wayback: "https://web.archive.org/web/20220208141524/https://keimeno.party/",
-  /** Drop a screenshot here (1600 × 1000) and it replaces the placeholder. */
+  /** Made by scripts/gen/old-site.mjs: 2000 × 1195, metadata stripped. */
   image: "/media/keimeno-party-2020.webp",
 };
