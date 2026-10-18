@@ -93,4 +93,14 @@ const items = [
       gap: 6px 20px;
     }
   }
+
+  /* Touch: the name and the links under it sit 44 px apart, so their hit areas don't overlap. */
+  @media (pointer: coarse), (max-width: 760px) {
+    .site-header {
+      row-gap: 24px;
+    }
+    .site-header__nav ul {
+      row-gap: 26px;
+    }
+  }
 </style>

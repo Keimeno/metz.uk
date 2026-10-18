@@ -132,6 +132,55 @@ img {
   color: var(--text);
 }
 
+/* ── Touch ─────────────────────────────────────────────────────────────── */
+/* No double-tap delay on anything pressable, and a quiet highlight where a finger lands. */
+a,
+button,
+summary,
+[role="button"] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(237, 235, 230, 0.12);
+}
+
+/* On touch screens (and narrow windows) a standalone link or button gets a hit area of at least
+   44 × 44 px, centred on it and invisible, so nothing on the page moves: the header and footer
+   links, the language switch. Links with their own ::after (like "All work →") take padding. */
+@media (pointer: coarse), (max-width: 760px) {
+  :where(
+    .site-header__mark,
+    .site-header__nav a,
+    .lang-switch,
+    .site-footer__cols a,
+    .site-footer__legal a,
+    .site-footer__email,
+    .text-link,
+    .site-head .mark
+  ) {
+    position: relative;
+  }
+  :where(
+    .site-header__mark,
+    .site-header__nav a,
+    .lang-switch,
+    .site-footer__cols a,
+    .site-footer__legal a,
+    .site-footer__email,
+    .text-link,
+    .site-head .mark
+  )::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+  .more {
+    padding-block: 12px;
+  }
+}
+
 /* ── Page frame (everything but the home page's thread) ───────────────── */
 .wrap {
   max-width: var(--page-max);

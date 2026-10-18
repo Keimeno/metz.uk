@@ -320,7 +320,9 @@ const phoneSources = pictureSources(phoneSrc, 480);
       opacity 0.4s ease,
       visibility 0.4s;
   }
-  .site-head :is(a, nav) {
+  /* The language link comes from a child component, so the scoped `a` above doesn't reach it. */
+  .site-head :is(a, nav),
+  .site-head :global(.lang-switch) {
     pointer-events: auto;
   }
   .mark {
@@ -419,6 +421,12 @@ const phoneSources = pictureSources(phoneSrc, 480);
   :global(.thread-on) .station__layer {
     position: fixed;
     inset: 0 0 auto;
+    pointer-events: none;
+  }
+  /* The sections are only scroll length. Each one is painted over the fixed layers of the ones
+     before it, so left alone a later section catches the taps meant for an earlier station's links
+     whenever the two overlap on screen. */
+  :global(.thread-on) .station {
     pointer-events: none;
   }
   :global(.thread-on) .station__layer :is(a, button) {

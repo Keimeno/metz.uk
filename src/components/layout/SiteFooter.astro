@@ -145,4 +145,14 @@ const year = new Date().getFullYear();
       padding: 56px 0 48px;
     }
   }
+
+  /* Touch: stacked links sit 44 px apart, so each one's hit area is its own. */
+  @media (pointer: coarse), (max-width: 760px) {
+    .site-footer__cols ul {
+      gap: 22px;
+    }
+    .site-footer__legal {
+      gap: 14px 20px;
+    }
+  }
 </style>
