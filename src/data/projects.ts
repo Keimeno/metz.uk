@@ -121,10 +121,12 @@ export const PROJECTS = [
     schema: { type: "WebApplication", category: "GameApplication" },
   },
   {
-    slug: "carcost",
+    slug: "unterm-strich",
     years: "2026",
     tint: "#9fd3c7",
-    links: [],
+    links: [
+      { kind: "live", href: "https://unterm-strich.metz.uk/", label: "unterm-strich.metz.uk" },
+    ],
     schema: { type: "WebApplication", category: "FinanceApplication" },
   },
   {

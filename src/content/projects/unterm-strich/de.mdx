@@ -1,0 +1,53 @@
+---
+title: "Unterm Strich"
+headline: "Was ein Auto in Deutschland wirklich kostet: jeder Weg, mobil zu sein, Monat für Monat gerechnet, das Ergebnis in der letzten Zeile."
+description: "Unterm Strich von Constantin Metz: ein Vollkosten-Rechner für Autos in Deutschland. Bar, Kredit, Leasing, Abo, Dienstwagen oder kein Auto, Monat für Monat gerechnet."
+role: "Solo · Rechenkern, deutsches Steuerrecht, Daten, UI, DE/EN, PWA"
+stack:
+  [
+    "TypeScript",
+    "React 19",
+    "Vite",
+    "Tailwind CSS",
+    "Radix UI",
+    "Zustand",
+    "Zod",
+    "Workbox",
+    "Vitest",
+    "fast-check",
+  ]
+facts:
+  - { value: "86", label: "Fahrzeugmodelle", note: "142 Varianten" }
+  - { value: "413", label: "Zulassungsbezirke mit Regionalklassen" }
+  - { value: "345", label: "automatisierte Tests" }
+  - { value: "2", label: "Sprachen" }
+---
+
+## Das Problem
+
+Beim Autokauf ist der Listenpreis die am wenigsten aussagekräftige Zahl. Über ein paar Jahre summieren sich Wertverlust, Sprit oder Strom, Versicherung, Kfz-Steuer, TÜV, Reifen, Parken und Zinsen zu deutlich mehr als dem Unterschied zwischen zwei Preisschildern. Und die größten Posten stehen auf keinem Kontoauszug: der Wert, den das Auto verliert, und die Rendite, auf die man bei dem gebundenen Geld verzichtet. Dazu kommt in Deutschland eine Weggabelung: Ein Dienstwagen wird über die 1-%-Regel versteuert, und das kann ändern, welches Auto am günstigsten ist. Ich wollte einen Ort, an dem man Wege, mobil zu sein, unter denselben Annahmen vergleicht, auch den, kein Auto zu haben.
+
+## Was ich gebaut habe
+
+Unterm Strich ist eine Single-Page-App und läuft unter [unterm-strich.metz.uk](https://unterm-strich.metz.uk/). Man beschreibt, wie man fährt, und stellt Optionen nebeneinander: Barkauf, Kredit, 3-Wege-Finanzierung, Leasing, Auto-Abo, Dienstwagen (angestellt oder selbstständig), das eigene Auto weiterfahren oder gar keins. Jede Option erscheint als Beleg. Was man im Alltag zahlt, steht in Tinte, was man nicht spürt (Wertverlust und entgangene Rendite), in Rot, und unter einer doppelten Linie stehen die echten Kosten pro Monat. Dahinter liegen:
+
+- Was-wäre-wenn-Analysen: Kosten nach Fahrleistung mit Break-even, ein Tornado-Diagramm, welche Annahme am meisten ausmacht, welche Option bei welcher Fahrleistung und Haltedauer gewinnt, und die beste Haltedauer;
+- Firmenwagen: geldwerter Vorteil, exaktes Netto-Gehalt (§ 32a EStG 2026, Soli, Kirchensteuer, Sozialversicherung mit Beitragsbemessungsgrenzen), Barlohn-Alternative und Gehaltsumwandlung; für Selbstständige AfA, Vorsteuer und 1-%- oder Fahrtenbuchmethode;
+- eine Vermögensansicht: was die monatliche Differenz zwischen zwei Optionen bis zur Rente wert wäre;
+- ein Katalog mit 86 Modellen, sortiert nach den echten Kosten für das eigene Profil.
+
+Alles läuft im Browser, und die App lässt sich als PWA installieren. Nichts verlässt das Gerät: keine Konten, keine Webanalyse, keine API-Aufrufe; der Katalog liegt in der App. Ein Vergleich lässt sich als Link teilen, als Datei speichern oder als Bericht drucken. Die Oberfläche gibt es auf Deutsch und Englisch.
+
+## Die schwierigen Teile
+
+**Ein Kassenbuch für jede Art zu zahlen.** Jede Option ist eine Folge von Phasen, etwa „12 Monate weiterfahren, dann kaufen“, und wird Monat für Monat simuliert. Verträge wiederholen sich, ein Leasing kann also als Kette laufen. Jede Zahlung landet nach Kostenart im Kassenbuch, und die Schlussabrechnung (Verkauf, Restschuld, anteilige Vertragsabrechnung) wird am Ende gebucht. Die echten Kosten pro Monat sind die gleichmäßige Monatsrate mit demselben Barwert, abgezinst mit der Rendite der Alternative nach Abgeltungsteuer. Deshalb zählt spätes Zahlen als günstiger als frühes.
+
+**Deutsches Steuerrecht, in getestetem Code.** Die Regeln sind datierte Daten mit Quelle, und Tests nageln sie fest: § 32a an den Zonengrenzen, die Milderungszone des Solis, Beitragsbemessungsgrenzen, die Dienstwagensätze (0,25 % für Elektroautos bis 100.000 € seit Juli 2025). Die Kfz-Steuer jeder Katalogvariante wird aus Hubraum und CO₂ nachgerechnet und muss dem Wert des ADAC auf den Euro entsprechen; drei ADAC-Werte widersprechen sich selbst und sind markiert. Eigenschaftstests prüfen Aussagen wie „mehr Kilometer sind nie billiger“.
+
+**Daten mit Herkunft.** Jedes Modell führt seine Quellen und das Datum, an dem sie gelesen wurden. Schätzungen sind als Schätzungen gekennzeichnet. Wertverlust, Restwerte und der Zuverlässigkeitsindex sind eigene Berechnungen der App, angepasst an veröffentlichte Zahlen, und keine Daten der Organisationen hinter diesen Zahlen. Bekannte Schwachstellen, die ich nur schwach belegen konnte, habe ich weggelassen, weil ein Eintrag ohne Wahrscheinlichkeit als sicher gerechnet würde.
+
+**Teilen ohne Backend.** Ein Szenario wird komprimiert ins URL-Fragment geschrieben und erreicht so nie einen Server. Ab einer Länge, die Messenger gern kappen, bietet die App stattdessen eine Datei an.
+
+## Wie es weitergeht
+
+Das deutsche Steuerrecht ab 2027 ist unbekannt, deshalb gilt der letzte bekannte Stand fort. Reparaturen sind Erwartungswerte; einzelne Autos können deutlich mehr kosten. Der Realverbrauch ist für 26 der 142 Varianten gemessen, die übrigen rechnen mit dem WLTP-Wert plus Aufschlag. Marktpreise für Leasing und Abo stehen noch nicht im Katalog.

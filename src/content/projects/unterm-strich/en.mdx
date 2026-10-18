@@ -1,0 +1,53 @@
+---
+title: "Unterm Strich"
+headline: "What a car really costs in Germany: every way of getting around, priced month by month, with the answer on the last line."
+description: "Unterm Strich by Constantin Metz: a total-cost calculator for cars in Germany. Cash, loan, lease, subscription, company car or no car, priced month by month."
+role: "Solo · cost engine, German tax law, data, UI, EN/DE, PWA"
+stack:
+  [
+    "TypeScript",
+    "React 19",
+    "Vite",
+    "Tailwind CSS",
+    "Radix UI",
+    "Zustand",
+    "Zod",
+    "Workbox",
+    "Vitest",
+    "fast-check",
+  ]
+facts:
+  - { value: "86", label: "car models", note: "142 variants" }
+  - { value: "413", label: "registration districts with insurance classes" }
+  - { value: "345", label: "automated tests" }
+  - { value: "2", label: "languages" }
+---
+
+## The problem
+
+The list price is the least useful number when you buy a car. Over a few years, depreciation, fuel or electricity, insurance, tax, TÜV, tyres, parking and interest add up to far more than the gap between two price tags. And the biggest costs are the ones you never see on a statement: the value the car loses and the return you give up on the money tied up in it. Germany adds another fork: a company car is taxed through the 1 % rule, and that can change which car is cheapest. I wanted one place to compare ways of getting around on the same assumptions, including not owning a car at all.
+
+## What I built
+
+Unterm Strich ("bottom line") is a single-page app, live at [unterm-strich.metz.uk](https://unterm-strich.metz.uk/). You describe how you drive, then put options side by side: buying with cash, a loan, a three-way financing, a lease, a car subscription, a company car (as an employee or self-employed), keeping your current car, or having no car. Each option comes out as a receipt. What you pay in everyday life is in ink, what you don't feel (depreciation and the return you give up) is in red, and under a double rule sits the real cost per month. Behind the receipts:
+
+- what-if analysis: cost by annual distance with break-even, a tornado chart of which assumption matters most, which option wins at which distance and holding period, and the best time to sell;
+- company cars: the taxable benefit, an exact net salary (§ 32a EStG 2026, solidarity surcharge, church tax, social insurance with its contribution ceilings), the cash alternative and salary conversion; for the self-employed, depreciation, input VAT and the 1 % or logbook method;
+- a wealth view: what the monthly difference between two options is worth by retirement;
+- a catalogue of 86 models, sorted by real cost for your own profile.
+
+Everything runs in the browser, and the app installs as a PWA. Nothing leaves the device: no accounts, no analytics, no API calls; the catalogue ships with the app. A comparison can be shared as a link, saved as a file or printed as a report. The interface is in English and German.
+
+## The hard parts
+
+**One ledger for every way of paying.** Each option is a sequence of phases, such as "keep driving for 12 months, then buy", simulated month by month. Contracts repeat, so a lease can run as a chain. Every payment lands in a ledger by type of cost, and the final settlement (sale, remaining loan, the pro-rata share of a contract) is booked at the end. The real cost per month is the level monthly payment with the same present value, discounted at the return of the alternative after capital-gains tax. That is why paying late counts as cheaper than paying early.
+
+**German tax law, in tested code.** Rules are dated data with their source, and the tests pin them down: § 32a at its zone boundaries, the solidarity-surcharge relief zone, contribution ceilings, the company-car rates (0.25 % for electric cars up to €100,000 since July 2025). The Kfz tax of every catalogue variant is recomputed from engine size and CO₂ and must match the ADAC's figure to the euro; three of the ADAC's own values contradict themselves and are marked. Property tests state things like "more kilometres are never cheaper".
+
+**Data with its provenance.** Each model carries its sources and the date they were read. Estimates are marked as estimates. Depreciation, residual values and the reliability index are the app's own calculations, fitted to published figures, not data from any of the organisations behind those figures. I left out known defects that I could only weakly source, because an entry without a probability would be treated as certain.
+
+**Share links without a backend.** A scenario is compressed into the URL fragment, so it never reaches a server. Above a length messengers tend to cut, the app offers a file instead.
+
+## What's next
+
+German tax law from 2027 on is unknown, so the latest known values carry forward. Repairs are expected values, and a single car can cost much more. Real-world consumption is measured for 26 of the 142 variants; the rest use the WLTP figure with a markup. Market prices for leases and subscriptions aren't in the catalogue yet.
