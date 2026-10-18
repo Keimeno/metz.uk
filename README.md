@@ -105,6 +105,7 @@ OUT=/tmp/shots BASE=http://localhost:4321/de/ node scripts/dev/cdp-shots.mjs 390
 ## Still to drop in
 
 - `public/constantin-metz.jpg`: the portrait (about 4:5; set its size in `src/data/person.ts`).
-- The c/o address and the host details in `src/data/legal.ts` (marked TODO on the pages).
-- `public/media/keimeno-party-2020.webp` (1600 × 1000): a screenshot of the 2020 site, for /history/.
-- Posts are drafts (`draft: true`): shown with a banner, `noindex`, and left out of RSS.
+- The postal address, the host and the log retention in `src/data/legal.ts`: the privacy page is only true while they match reality.
+- `public/media/keimeno-party-2020.webp` (2000 × 1195): a screenshot of the 2020 site, for /history/.
+  `node scripts/gen/old-site.mjs <screenshot>` makes it and drops all metadata.
+- Posts with `draft: true` are shown with a banner, `noindex`, and left out of RSS; all three are published now.
