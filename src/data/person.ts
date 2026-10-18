@@ -1,12 +1,17 @@
 // Who the site is about: the facts every page agrees on, and the JSON-LD Person (src/lib/seo.ts).
 
+// The address is written in two pieces, so it never appears as one string in this repository (the
+// site itself only ships it through src/components/ui/Email.astro).
+const EMAIL_LOCAL = "constantin";
+const EMAIL_HOST = "metz.uk";
+
 export const PERSON = {
   name: "Constantin Metz",
   givenName: "Constantin",
   familyName: "Metz",
   /** His handle, on GitHub, GitLab, Stack Overflow and npm. */
   alternateName: "Keimeno",
-  email: "constantin@metz.uk",
+  email: `${EMAIL_LOCAL}@${EMAIL_HOST}`,
   city: { en: "Munich", de: "München" },
   country: { en: "Germany", de: "Deutschland" },
   /** ISO 3166-1 code, for structured data. */

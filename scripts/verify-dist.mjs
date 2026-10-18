@@ -11,7 +11,8 @@
 // is there. With the full git history, every sitemap URL has a <lastmod>, every profile page a
 // dateCreated and dateModified, and llms.txt a "Last updated" line (src/lib/dates.ts).
 //
-// Privacy and security: the email address never appears in plain text in any file; no image
+// Privacy and security: the email address is in no built file (not plain, not reversed with its @,
+// not as a mailto:, nothing shaped like an address) and in no source file; no image
 // carries GPS or XMP metadata; dist/_headers has a CSP whose hashes cover every inline script, and
 // no page loads anything from another origin or uses inline event handlers. Internal links to pages
 // end with a slash (trailingSlash: "always").
@@ -36,8 +37,14 @@ const SHARED_IDS = new Set([`${SITE}/#person`, `${SITE}/#website`]);
 const TITLE_MAX = 65;
 const DESCRIPTION = [50, 170];
 const NEVER = /\b(One Window|Reefster|psandro|dbackup|loveydovey|seminararbeit)\b/i;
-/** His address in any spelling a scraper would match (Email.astro only ships it reversed). */
-const EMAIL = /constantin(@|%40|&#0*64;|&#x0*40;)metz\.uk/i;
+/** His address in any spelling a scraper would match (Email.astro never ships it whole). */
+const EMAIL = /constantin(@|%40|&#0*64;|&#x0*40;|\s*[\[(]at[\])]\s*|\s+at\s+)metz\.uk/i;
+/** Anything shaped like an address (code samples use example.*). */
+const ANY_EMAIL = /[\w.+-]+(?:@|%40|&#0*64;|&#x0*40;)[\w-]+(?:\.[\w-]+)+/gi;
+const EXAMPLE_EMAIL = /@example\.(org|com|net)$/i;
+/** The reversed address with its @ (the old spelling), and a mailto: that isn't the script's template. */
+const REVERSED = /ku\.ztem(@|%40)|(@|%40)nitnatsnoc/i;
+const MAILTO = /mailto:(?!\$\{)/i;
 const TEXT_TYPES = new Set([
   ".html",
   ".xml",
@@ -270,7 +277,10 @@ function checkPerson(path, person) {
     const size = file && existsSync(file) ? jpegSize(file) : null;
     if (!size) fail(path, `the Person's image ${img.url} isn't a JPEG in dist`);
     else if (size.width !== img.width || size.height !== img.height)
-      fail(path, `the Person's image ${img.url} is ${size.width}×${size.height}, not ${img.width}×${img.height}`);
+      fail(
+        path,
+        `the Person's image ${img.url} is ${size.width}×${size.height}, not ${img.width}×${img.height}`
+      );
     else if (size.width * size.height < MIN_IMAGE_PIXELS)
       fail(path, `the Person's image ${img.url} has fewer than ${MIN_IMAGE_PIXELS} pixels`);
   }
@@ -375,7 +385,7 @@ else {
   }
   if (EMPLOYERS.test(llms)) fail("llms.txt", `names an employer: "${llms.match(EMPLOYERS)[0]}"`);
   if (gitHistory && !/^Last updated: \d{4}-\d{2}-\d{2}$/m.test(llms))
-    fail("llms.txt", "no \"Last updated\" line");
+    fail("llms.txt", 'no "Last updated" line');
   if (NEVER.test(llms)) fail("llms.txt", `mentions "${llms.match(NEVER)[0]}"`);
 }
 
@@ -386,12 +396,56 @@ if (indexNowKeys.length !== 1)
 else if (readFileSync(join(DIST, indexNowKeys[0]), "utf8").trim() !== indexNowKeys[0].slice(0, -4))
   problems.push(`IndexNow: ${indexNowKeys[0]} doesn't contain its own name`);
 
-// No plain email anywhere: pages, feeds, sitemap, llms.txt, scripts, styles, _headers.
+// No email anywhere: pages, feeds, sitemap, llms.txt, scripts, styles, _headers. Not plain, not
+// reversed with its @, not as a mailto: link, and nothing at all shaped like an address.
+let emailScanned = 0;
 for (const file of all) {
   if (!TEXT_TYPES.has(extname(file))) continue;
-  if (EMAIL.test(readFileSync(file, "utf8")))
-    fail(relative(DIST, file), "contains the email address in plain text");
+  emailScanned++;
+  const text = readFileSync(file, "utf8");
+  const at = relative(DIST, file);
+  if (EMAIL.test(text)) fail(at, "contains the email address in plain text");
+  if (REVERSED.test(text)) fail(at, "contains the email address reversed, with its @");
+  if (MAILTO.test(text)) fail(at, "contains a mailto: link (Email.astro adds it on interaction)");
+  for (const m of text.match(ANY_EMAIL) ?? [])
+    if (!EXAMPLE_EMAIL.test(m)) fail(at, `contains something shaped like an email address: ${m}`);
 }
+
+// The repository holds no plain address either, so it can go public: source, scripts and docs.
+const ROOT = new URL("..", import.meta.url).pathname;
+const SKIP_DIRS = new Set(["node_modules", "dist", ".git", ".astro", ".cache", ".wrangler"]);
+const SOURCE_TYPES = new Set([
+  ".ts",
+  ".astro",
+  ".mdx",
+  ".md",
+  ".mjs",
+  ".json",
+  ".jsonc",
+  ".css",
+  ".txt",
+  ".svg",
+  ".glsl",
+  ".vert",
+  ".frag",
+  ".webmanifest",
+  ".yml",
+  ".yaml",
+]);
+let sourcesScanned = 0;
+const walkSources = (dir) => {
+  for (const name of readdirSync(dir)) {
+    if (SKIP_DIRS.has(name)) continue;
+    const path = join(dir, name);
+    if (statSync(path).isDirectory()) walkSources(path);
+    else if (SOURCE_TYPES.has(extname(path)) && name !== "package-lock.json") {
+      sourcesScanned++;
+      if (EMAIL.test(readFileSync(path, "utf8")))
+        fail(relative(ROOT, path), "the repository holds the email address in plain text");
+    }
+  }
+};
+walkSources(ROOT);
 
 // No location or editing metadata in any image (the portrait original carries GPS).
 for (const file of all) {
@@ -507,6 +561,6 @@ console.log(
     `and ${sitemapImages} image(s); robots.txt, llms.txt and the IndexNow key check out.`
 );
 console.log(
-  `✓ Privacy and security: no plain email in ${all.length} files, no GPS/XMP in images, the CSP allows ` +
+  `✓ Privacy and security: no email address in ${emailScanned} built files or ${sourcesScanned} source files, no GPS/XMP in images, the CSP allows ` +
     `exactly the ${allowed.size} inline scripts, nothing loads from another origin.`
 );

@@ -3,6 +3,8 @@
 // The privacy page is only true while these match reality: the host, the log retention (see
 // SEO-GEO-PLAN.md, Appendix A, for how to keep it at 7 days) and the mail host.
 
+import { PERSON } from "./person";
+
 export const LEGAL = {
   name: "Constantin Metz",
   /** The postal address for the Imprint (§ 5 DDG): c/o his brother's company, where post reaches him. */
@@ -11,7 +13,7 @@ export const LEGAL = {
     lines: ["c/o Webstra Maximilian Metz & Michael Molata GbR", "Benzstraße 2", "82178 Puchheim"],
     country: { en: "Germany", de: "Deutschland" },
   },
-  email: "constantin@metz.uk",
+  email: PERSON.email,
   /**
    * Who delivers the site. The VPS was ordered through ca.ovh.com, so the contract is with OVH's
    * Canadian company; the server itself stands in OVH's data centre in Gravelines, France, which

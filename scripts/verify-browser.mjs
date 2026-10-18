@@ -4,6 +4,9 @@
 // - No page is wider than a 390 px phone, or a 320 px one.
 // - The home page's name stays on its first screen when the viewport grows to the page's height,
 //   as Google's renderer does before its screenshot.
+// - The email address is never in a page's source or in what a script reads from it: before any
+//   interaction the link goes to the imprint and holds only reversed halves; the first interaction
+//   turns every address on the page into a mailto: link with the address in its text.
 // - With the thread running, the home page shows assistive technology the same headings as the
 //   document version (`?nothread`), find-in-page reaches the station text, and Tab reaches every
 //   link in the thread and brings its panel up.
@@ -342,6 +345,37 @@ for (const home of HOMES) {
   else tallViewport.push(`${home} ${grown} px`);
 }
 
+// ── 2b. The email address ──────────────────────────────────────────────────────────────────
+// Before anyone interacts, a link holds no "@" and no mailto:, CSS draws the address, and the link
+// goes to the imprint; the first interaction makes it a real mailto: link, everywhere on the page.
+const ADDRESS = ["constantin", "metz.uk"].join("@");
+const reversedAddress = [...ADDRESS].reverse().join("");
+let emailLinks = 0;
+await viewport(DESKTOP, false);
+for (const path of ["/", "/de/", "/about/", "/imprint/", "/de/impressum/", "/privacy/"]) {
+  await open(path);
+  const links = await evaluate(`[...document.querySelectorAll("a[data-email]")].map((a) => {
+    const css = getComputedStyle(a.querySelector("[data-u]"), "::before");
+    return { href: a.getAttribute("href"), html: a.outerHTML, shown: css.content, dir: css.direction };
+  })`);
+  if (!links.length && path !== "/privacy/") fail(path, "no email link on the page");
+  for (const l of links) {
+    emailLinks++;
+    if (/@|mailto:/i.test(l.html))
+      fail(path, "an email link holds an @ or a mailto: before any interaction");
+    if (l.shown !== `"${reversedAddress}"` || l.dir !== "rtl")
+      fail(path, `the address isn't drawn right to left (${l.shown}, ${l.dir})`);
+    if (l.href.includes("mailto:"))
+      fail(path, "an email link is a mailto: link before any interaction");
+  }
+  await evaluate(`window.dispatchEvent(new PointerEvent("pointermove"))`);
+  const after = await evaluate(`[...document.querySelectorAll("a.email")].map((a) => ({
+    href: a.getAttribute("href"), text: a.textContent.trim(), open: a.hasAttribute("data-email") }))`);
+  for (const l of after)
+    if (l.open || l.href !== `mailto:${ADDRESS}` || !l.text.endsWith(ADDRESS))
+      fail(path, `an email link wasn't upgraded on the first interaction (${l.href}, "${l.text}")`);
+}
+
 // ── 3. The thread, for assistive technology, the keyboard and find-in-page ─────────────────
 await viewport(DESKTOP, false);
 const summary = [];
@@ -519,5 +553,8 @@ console.log(
 );
 for (const line of summary)
   console.log(`✓ ${line}; a lost WebGL context leaves the full document, reader in place.`);
+console.log(
+  `✓ ${emailLinks} email links: no @ or mailto: in the source, drawn by CSS, mailto: after the first interaction.`
+);
 console.log("✓ No console errors, no CSP violations.");
 process.exit(0);

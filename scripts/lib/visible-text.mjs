@@ -1,5 +1,5 @@
 // The text a reader can see on a built page: text nodes, the alt, title and aria-label attributes
-// (and the email's reversed address, which CSS draws), and CSS `content` strings. Shared by the
+// (and the halves of the email address, which CSS draws), and CSS `content` strings. Shared by the
 // font subsetter (scripts/gen/fonts.mjs) and verify-dist's font coverage check.
 
 /** The text a reader can see on one built page. */
@@ -7,7 +7,9 @@ export function visibleText(html) {
   const css = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)]
     .flatMap(([, s]) => [...s.matchAll(/content:\s*"((?:[^"\\]|\\.)*)"/g)].map((m) => m[1]))
     .join(" ");
-  const attrs = [...html.matchAll(/\s(?:alt|title|aria-label|placeholder|data-addr)="([^"]*)"/g)]
+  const attrs = [
+    ...html.matchAll(/\s(?:alt|title|aria-label|placeholder|data-u|data-h)="([^"]*)"/g),
+  ]
     .map((m) => m[1])
     .join(" ");
   const text = html
