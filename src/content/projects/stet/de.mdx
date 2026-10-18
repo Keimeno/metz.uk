@@ -1,0 +1,66 @@
+---
+title: "Stet"
+headline: "Ein Bluffspiel mit seltenen Wörtern fürs Handy, gestaltet als Wörterbuchseite unter dem Rotstift eines Korrektors."
+description: "Stet von Constantin Metz: ein kostenloses Bluffspiel mit seltenen Wörtern fürs Handy, als korrigierte Wörterbuchseite, mit Echtzeit-Räumen auf Fastify und Socket.IO."
+role: "Solo · Spieldesign, Gestaltung und Sound, Server, Deployment"
+stack:
+  ["TypeScript", "React 19", "Vite", "Motion", "Fastify", "Socket.IO", "Zod", "Web Audio", "Docker"]
+facts:
+  - { value: "44.695", label: "seltene Wörter im Stapel" }
+  - { value: "3–12", label: "Spieler pro Raum" }
+  - { value: "45 s", label: "Schonfrist bei Verbindungsabbruch" }
+  - { value: "156", label: "automatisierte Tests" }
+---
+
+## Das Problem
+
+Am Tisch ist das Spiel simpel, man kennt es als „Nobody is perfect“ oder Balderdash: Jemand liest ein obskures Wort vor, alle schreiben eine erfundene Bedeutung auf, die echte kommt dazu, und dann wird abgestimmt. Auf dem Handy ist das Schwierige die Geheimhaltung. Hält der Browser den kompletten Spielstand, kann jeder mit den Entwicklertools die Lösung lesen. Und Handys verlieren ständig die Verbindung: Ein gesperrter Bildschirm oder eine Fahrt im Aufzug darf niemanden den Platz oder die Punkte kosten.
+
+Ich wollte eine Version, für die man nur einen Link braucht. Keine Accounts, keine App, kein externer Realtime-Dienst.
+
+## Was ich gebaut habe
+
+Stet läuft unter [stet.metz.uk](https://stet.metz.uk/). Es begann im Sommer 2026 als schlichtere erste Version und bekam im Oktober seinen Namen und ein neues Design. _Stet_ ist das Korrekturzeichen für „bleibt stehen“, die Notiz, die eine Korrektur zurücknimmt. Genau das passiert am Ende jeder Runde mit der echten Definition.
+
+Eine Person eröffnet einen Raum und teilt einen Code aus vier Buchstaben, einen Link oder einen QR-Code. In jeder Runde bekommt der Vorleser drei seltene Wörter angeboten, kann alle drei gegen neue tauschen und wählt eins aus. Alle anderen schreiben eine glaubwürdige Fälschung. Die echte Definition wird in den Stimmzettel gemischt, dann stimmt der Raum ab. Wer richtig rät, bekommt einen Punkt; jede Stimme für einen Bluff bringt dessen Autor einen Punkt.
+
+Es gibt zwei Abstimmungsmodi. Im Vorlesemodus, der Standard ist, zeigt nur das Handy des Vorlesers die Texte: Er liest jeden vor, den Buchstaben zuerst, und alle anderen stimmen per Buchstabe ab. Das Spiel ist besser, wenn man sich gegenseitig ansieht statt aufs Display zu schauen. Im Bildschirmmodus zeigt jedes Handy den ganzen Stimmzettel.
+
+Jeder Bildschirm ist eine Seite aus einem Wörterbuch, das gerade korrigiert wird: warmes Papier, schwarze Tinte und genau zwei Korrekturfarben. Der Rotstift urteilt, der Blaustift ist man selbst. Der Stimmzettel ist gesetzt wie die mit Buchstaben gezählten Bedeutungen eines einzigen Eintrags. Bei der Auflösung streicht der Rotstift die Bluffs einen nach dem anderen durch, in der Reihenfolge ihrer Stimmen, und die echte Definition kommt zuletzt, mit der gepunkteten Unterstreichung, die Korrektoren für _stet_ verwenden. Punkte sind Strichlisten, die Runden sind Daumenregister am Seitenrand.
+
+Das Frontend ist React 19 mit Vite und Motion, mit selbst gehosteten Schriften (Newsreader und Schibsted Grotesk). Das Backend sind Fastify und Socket.IO in einem Node-Prozess, der auch die gebaute App ausliefert, verpackt als ein einziges Docker-Image mit Health-Check.
+
+## Die schwierigen Teile
+
+**Geheimnisse bleiben auf dem Server.** Der Server steuert jeden Übergang: Lobby, Wortwahl, Schreiben, Abstimmung, Auflösung, Punkte. Clients bekommen nie den vollständigen Zustand. Vor jedem Broadcast baut der Server für jeden Spieler eine eigene Ansicht. Nur der Vorleser sieht die Wortauswahl und die echte Definition, Einsendungen bleiben bis zur Abstimmung verborgen, und wer was geschrieben und gewählt hat, zeigt sich erst bei der Auflösung. Das ist der Stimmzettel-Teil von `server/game/project-state.ts`:
+
+```ts
+let ballot: BallotOption[] = [];
+if (state.status === "VOTING") {
+  const showText = state.settings.votingMode === "SCREEN" || isReader;
+  ballot = room.currentBallot.map((entry) => ({
+    id: entry.id,
+    label: entry.label,
+    ...(showText ? { text: entry.text } : {}),
+    ...(entry.authorId === playerId ? { authorId: playerId } : {}),
+  }));
+} else if (isRevealed && room.currentResult) {
+  ballot = room.currentResult.ballot.map((entry) => ({ ...entry }));
+}
+```
+
+Jeder Spieler erfährt, welcher Eintrag sein eigener ist, und sonst nichts. Im Vorlesemodus sieht nur der Vorleser die Texte; ohne diesen Hinweis wüsste man nicht, welcher Buchstabe der eigene Bluff ist. Die App sperrt die Taste für den eigenen Bluff, und die Engine weist Stimmen für sich selbst ohnehin ab.
+
+**Ein Wörterbuch, das sich nicht verrät.** Der Stapel stammt aus dem Text von Webster's Unabridged Dictionary (1913) bei Project Gutenberg. Ein Skript wirft die 10.000 häufigsten englischen Wörter raus und behält Definitionen mit 5 bis 25 Wörtern. Ein Wörterbuch von 1913 bringt aber seinen eigenen Apparat mit: Gebrauchsangaben wie „[Obs.]“, angehängte Quellen wie „Shak.“, zitierte Beispiele und alte Strich-Konventionen. So schreibt kein Spieler, also würde jedes davon die echte Definition auf einen Blick verraten. Ein Bereinigungsschritt entfernt sie und prüft danach die Länge erneut, deshalb ist der Stapel auf 44.695 Wörter geschrumpft. Er kann die eingecheckte Liste auch neu bereinigen, ohne die Quelle erneut herunterzuladen.
+
+**Zeichen, die gezeichnet werden.** Jede Streichung, jeder Kringel, jede Unterstreichung und jeder Strich der Strichliste wird für genau das Feld erzeugt, das er abdeckt, mit einem Seed, sodass keine zwei gleich aussehen, und als Stiftstrich animiert. Der Sound funktioniert genauso: Er wird live mit der Web Audio API synthetisiert, ganz ohne Audiodateien. Bedienelemente klicken beim Drücken und Loslassen, jedes Zeichen klingt beim Zeichnen nach Stift oder Bleistift, eine Stimme landet mit einem Stempel, und eine Tischglocke klingelt, wenn man dran ist. Handys, die es unterstützen, vibrieren mit, auf iOS über einen nativen Schalter.
+
+**Reconnects, die die Runde nicht zerstören.** Jeder Browser speichert eine feste Spieler-ID und seinen aktuellen Raum im Local Storage und tritt wieder bei, sobald der Socket neu verbunden ist. Der Server zählt Sockets pro Spieler, zwei Tabs sind also ein Platz. Bricht die letzte Verbindung eines Spielers ab, startet ein 45-Sekunden-Timer; wer zurückkommt, stoppt ihn. Läuft er ab, hängt das Ergebnis von der Phase ab. In der Lobby wird der Spieler entfernt. Fehlt der Vorleser, beginnt eine neue Runde mit einem neuen Vorleser. Alle anderen werden zu Zuschauern, und die Engine prüft erneut, ob alle aktiven Spieler geschrieben oder abgestimmt haben. So endet die Runde, ohne auf ein Handy in einer Hosentasche zu warten.
+
+**Ein Neustart übersteht das Spiel.** Jeder Broadcast speichert außerdem alle Räume in eine JSON-Datei, erst in eine temporäre Datei und dann umbenannt, damit ein Absturz keine halbe Datei hinterlässt. Beim Start stellt der Server die Räume wieder her, markiert alle als getrennt und startet ihre Schonfristen. Ein Deployment mitten im Spiel kostet die Spieler einen Reconnect, nicht ihre Punkte.
+
+Die Tests steuern die Engine direkt, spielen ganze Runden in beiden Abstimmungsmodi gegen einen echten Server mit echten Socket.IO-Clients und decken die Bildschirme, die Wörterbuch-Bereinigung und den Sound ab.
+
+## Stand
+
+Live und spielbar, mit Sound und Vibration, die sich über den Lautsprecher-Button abschalten lassen. Der Spielzustand lebt in einem Prozess und einer Datei, deshalb läuft es als einzelne Instanz; zum Skalieren bräuchte es geteilten Speicher und einen Socket.IO-Adapter. Das Spiel gibt es nur auf Englisch. Das Repository beginnt mit einer Skizze vom Januar 2024, die schon Deutsch vorsah; dafür braucht es eine deutsche Wortliste mit sauberer Lizenz. Die Liste häufiger Wörter, mit der gefiltert wird, ist für private und Forschungszwecke freigegeben und würde vor einer kommerziellen Nutzung ersetzt.

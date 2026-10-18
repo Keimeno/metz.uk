@@ -1,0 +1,66 @@
+---
+title: "Stet"
+headline: "A Fictionary party game for phones, set as a dictionary page under a proofreader's red pen."
+description: "Stet by Constantin Metz: a free Fictionary party game for phones, styled as a proofread dictionary page, with real-time rooms on Fastify and Socket.IO."
+role: "Solo · game design, visual and sound design, server, deployment"
+stack:
+  ["TypeScript", "React 19", "Vite", "Motion", "Fastify", "Socket.IO", "Zod", "Web Audio", "Docker"]
+facts:
+  - { value: "44,695", label: "obscure words in the deck" }
+  - { value: "3–12", label: "players per room" }
+  - { value: "45 s", label: "to reconnect without losing your seat" }
+  - { value: "156", label: "automated tests" }
+---
+
+## The problem
+
+Fictionary (sold as Balderdash) is simple at a table. Someone reads out an obscure word, everyone writes a fake definition, the real one goes into the pile, and people vote for the one they believe. On phones, the hard part is secrecy. If the browser holds the whole game state, anyone with developer tools can read the answer. And phones drop their connection all the time: a locked screen or a lift ride shouldn't cost someone their seat or their score.
+
+I wanted a version that needs nothing but a link. No accounts, no app, no third-party realtime service.
+
+## What I built
+
+Stet is live at [stet.metz.uk](https://stet.metz.uk/). It started in summer 2026 as a plainer first version and got its name and a new design in October. _Stet_ is the proofreader's mark for "let it stand", the note that cancels a correction, which is what the real definition does at the end of every round.
+
+One player creates a room and shares a four-letter code, a link or a QR code. Each round, the reader is offered three rare words, can swap all three for fresh ones, and picks one. Everyone else writes a convincing fake. The real definition is shuffled into the ballot and the room votes. A correct guess earns a point; every vote a bluff attracts earns its author a point.
+
+There are two voting modes. In read-aloud mode, the default, only the reader's phone shows the texts: they read each one out, letter first, and everyone else votes by letter. The game is better when people look at each other instead of their screens. In on-screen mode, every phone shows the whole ballot.
+
+Every screen is a page of a dictionary being proofread: warm paper, black ink and exactly two marking colours. The red pen judges, the blue pencil is you. The ballot is set as the lettered senses of a single entry. At the reveal, the red pen strikes out the bluffs one by one in the order of their votes, and the real definition comes last, with the dotted underline proofreaders use for _stet_. Scores are tally marks, and the rounds are thumb-index tabs down the edge of the page.
+
+The frontend is React 19 with Vite and Motion, with self-hosted Newsreader and Schibsted Grotesk. The backend is Fastify and Socket.IO in one Node process that also serves the built app, shipped as a single Docker image with a health check.
+
+## The hard parts
+
+**Keeping secrets on the server.** The server owns every transition: lobby, drafting, writing, voting, reveal, scores. Clients never receive the canonical state. Before each broadcast, the server builds a separate view for every player. Only the reader sees the word options and the real definition, submissions stay hidden until voting, and authorship and votes appear only at the reveal. This is the ballot part of `server/game/project-state.ts`:
+
+```ts
+let ballot: BallotOption[] = [];
+if (state.status === "VOTING") {
+  const showText = state.settings.votingMode === "SCREEN" || isReader;
+  ballot = room.currentBallot.map((entry) => ({
+    id: entry.id,
+    label: entry.label,
+    ...(showText ? { text: entry.text } : {}),
+    ...(entry.authorId === playerId ? { authorId: playerId } : {}),
+  }));
+} else if (isRevealed && room.currentResult) {
+  ballot = room.currentResult.ballot.map((entry) => ({ ...entry }));
+}
+```
+
+Each player learns which entry is their own and nothing else. In read-aloud mode only the reader sees the texts, so without that hint you couldn't tell which letter is your bluff. The phone disables it, and the engine rejects self-votes anyway.
+
+**A dictionary that doesn't give itself away.** The deck comes from the Project Gutenberg text of Webster's Unabridged Dictionary (1913). A script drops the 10,000 most common English words and keeps definitions of 5 to 25 words. But a 1913 dictionary carries its own apparatus: usage labels like "[Obs.]", trailing citations like "Shak.", quoted examples and old dash conventions. No player writes like that, so any of them would mark the real definition at a glance. A cleaner strips them and re-checks the length afterwards, which is why the deck shrank to 44,695 words. It can re-clean the checked-in list without downloading the source again.
+
+**Marks that are drawn, not placed.** Every strike, loop, underline and tally is generated for the exact box it covers, with a seed, so no two look alike, and animated as a pen stroke. The sound works the same way: it's synthesised live with the Web Audio API, without a single audio file. Controls click on press and release, every mark makes the sound of the pen or pencil as it draws, a vote lands with a rubber stamp, and a desk bell rings when it's your move. Phones that support it vibrate along, on iOS through a native switch.
+
+**Reconnects that don't wreck the round.** Each browser keeps a stable player ID and its current room in local storage and rejoins as soon as the socket reconnects. The server tracks sockets per player, so two tabs count as one seat. When a player's last socket drops, a 45-second timer starts, and coming back cancels it. If it runs out, the outcome depends on the phase. In the lobby the player is removed. A missing reader triggers a fresh round with a new reader. Anyone else becomes an observer, and the engine re-checks whether all active players have written or voted, so the round finishes without waiting for a phone in someone's pocket.
+
+**Surviving a restart.** Every broadcast also snapshots all rooms to a JSON file, written to a temporary file and renamed, so a crash can't leave half a file behind. On boot, the server restores the rooms, marks everyone as disconnected and starts their grace timers. A deploy in the middle of a game costs players a reconnect, not their scores.
+
+The tests drive the engine directly, play full rounds in both voting modes against a real server with real Socket.IO clients, and cover the screens, the dictionary cleaner and the sound.
+
+## Status
+
+Live and playable, with sound and haptics that can be switched off from the speaker button. Room state lives in one process and one file, so it runs as a single replica; scaling out would take shared storage and a Socket.IO adapter. The game is English only. The repository starts with a sketch from January 2024 that already planned German, which needs a German word list with a clean licence. The common-word list used for filtering is cleared for personal and research use, so it would be replaced before any commercial use.

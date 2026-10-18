@@ -113,10 +113,11 @@ export const PROJECTS = [
     schema: { type: "CreativeWork" },
   },
   {
-    slug: "lexicon-bluff",
+    slug: "stet",
     years: "2026",
-    tint: "#ff8f70",
-    links: [{ kind: "live", href: "https://lexicon.pergata.com/", label: "lexicon.pergata.com" }],
+    // Stet's red pen, lifted a little for the dark page.
+    tint: "#ef5a43",
+    links: [{ kind: "live", href: "https://stet.metz.uk/", label: "stet.metz.uk" }],
     schema: { type: "WebApplication", category: "GameApplication" },
   },
   {
