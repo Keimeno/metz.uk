@@ -3,7 +3,7 @@ title: "Ein OpenID-Connect-Server mit 18"
 description: "Weihnachten 2019: Single Sign-on für ein Minecraft-Netzwerk, auf den Accounts seines Forums. Was es brauchte, was ich in drei Wochen gebaut habe und was davon hält."
 slug: "oidc-mit-18"
 published: 2026-10-15
-draft: true
+draft: false
 ---
 
 In den Weihnachtsferien 2019, zwischen dem 14. Dezember und dem 7. Januar, habe ich einen OpenID-Connect-Provider für LuminuNET geschrieben, ein Minecraft-Netzwerk, dessen Accounts in einem XenForo-Forum lagen. Ich war 18 und ging noch zur Schule. Das Netzwerk bekam gerade seine ersten Web-Tools, und ich wollte, dass jedes davon weiß, wer man ist, sobald man sich einmal mit seinem Forum-Account angemeldet hat.
@@ -30,13 +30,13 @@ Einen TypeScript-Service auf einer Alpha von Express 5, dazu ein kleines Vue-2-F
 Am meisten freut mich bis heute das kleinste Stück. XenForo speichert die Login-Daten jedes Nutzers PHP-serialisiert in `xf_user_authenticate`, und PHP schreibt bcrypt-Hashes mit dem Präfix `$2y$`. Die bcrypt-Bindung für Node, die ich benutzt habe, akzeptierte nur `$2a$` und `$2b$`. Es ist derselbe Algorithmus unter PHPs Etikett, also tauscht der Service das Präfix und vergleicht. Aus `packages/service/src/middleware/checks/authorize/loginChecks.ts`:
 
 ```ts
-const unserializedHash = unserialize(serializedHash[0]['data'].toString());
+const unserializedHash = unserialize(serializedHash[0]["data"].toString());
 
-let passwordHash: string = unserializedHash['hash'];
+let passwordHash: string = unserializedHash["hash"];
 
 // Need to replace the hash prefix because xenforo uses an old
 // hashing format and bcrypt doesn't support this anymore
-passwordHash = passwordHash.replace('y', 'a');
+passwordHash = passwordHash.replace("y", "a");
 ```
 
 Die Begründung im Kommentar stimmt nicht ganz (`$2y$` ist nicht älter, sondern PHPs eigene Kennung), und `replace('y', 'a')` funktioniert, weil das Präfix garantiert, dass das erste `y` an dritter Stelle steht. Das Ergebnis ist aber genau das, was das Netzwerk brauchte: Jeder Forum-Account konnte sich unverändert anmelden, ohne Reset, ohne Migration, und das Forum blieb der einzige Ort, der entschied, wer jemand ist und zu welcher Gruppe er gehört.
@@ -117,16 +117,16 @@ Das liest sich wie „DEV oder DEVELOPMENT“ und ist ein schönes JavaScript-R�
 Beim Registrieren einer App entstand ein RSA-4096-Schlüsselpaar nur für sie. Aus `packages/service/src/services/authorize/service.ts`:
 
 ```ts
-const { privateKey, publicKey } = await generateKeyPair('rsa', {
+const { privateKey, publicKey } = await generateKeyPair("rsa", {
   modulusLength: 4096,
   publicKeyEncoding: {
-    type: 'spki',
-    format: 'pem'
+    type: "spki",
+    format: "pem",
   },
   privateKeyEncoding: {
-    type: 'pkcs8',
-    format: 'pem'
-  }
+    type: "pkcs8",
+    format: "pem",
+  },
 });
 ```
 

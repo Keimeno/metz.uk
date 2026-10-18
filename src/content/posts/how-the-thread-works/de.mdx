@@ -3,7 +3,7 @@ title: "Wie der Thread funktioniert"
 description: "Eine Lichtlinie durch den 3D-Raum, gesteuert vom nativen Scrollen: der WebGL2-Renderer, die Kamera und die Daten hinter der Startseite von metz.uk."
 slug: "wie-der-thread-funktioniert"
 published: 2026-10-15
-draft: true
+draft: false
 ---
 
 Die Startseite dieser Website ist eine einzige Linie. Sie schreibt meinen Namen über die Überschrift, dann zieht das Scrollen sie in den Raum, und an jeder Station zeichnet sie etwas aus einem meiner Projekte: eine Prognose, die in 1.000 Marktverläufe aufplatzt, eine Konstellation aus Subreddits, ein bewertetes Paper, einen Login-Ablauf und einen Git-Branch, eine Zeitleiste. Am Ende steigt die Kamera auf und zeigt den ganzen Weg.
@@ -76,7 +76,9 @@ for (let i = 0; i < s.count; i++) {
   P[p + 1] = from[o + 1] + (to[o + 1] - from[o + 1]) * e;
   P[p + 2] = from[o + 2] + (to[o + 2] - from[o + 2]) * e;
   // Faint pen travel turns into ink as the figure morphs.
-  P[p + 3] = brighten ? from[o + 3] + (1 - from[o + 3]) * e : from[o + 3] + (to[o + 3] - from[o + 3]) * e;
+  P[p + 3] = brighten
+    ? from[o + 3] + (1 - from[o + 3]) * e
+    : from[o + 3] + (to[o + 3] - from[o + 3]) * e;
 }
 ```
 
@@ -187,10 +189,22 @@ Aller Text ist HTML und liegt, solange der Thread läuft, fixiert über dem Canv
 // Element px → world.
 const model = mat4();
 model.set([
-  right[0] * sx, right[1] * sx, right[2] * sx, 0,
-  -up[0] * sy, -up[1] * sy, -up[2] * sy, 0,
-  normal[0] * 0.001, normal[1] * 0.001, normal[2] * 0.001, 0,
-  corner[0], corner[1], corner[2], 1,
+  right[0] * sx,
+  right[1] * sx,
+  right[2] * sx,
+  0,
+  -up[0] * sy,
+  -up[1] * sy,
+  -up[2] * sy,
+  0,
+  normal[0] * 0.001,
+  normal[1] * 0.001,
+  normal[2] * 0.001,
+  0,
+  corner[0],
+  corner[1],
+  corner[2],
+  1,
 ]);
 // Clip space → CSS px (y down).
 const s = this.screen;
@@ -252,7 +266,8 @@ Der Thread ist eine Erweiterung, und `boot.ts` entscheidet, ob er überhaupt lä
 const params = new URLSearchParams(location.search);
 const forced = params.has("thread") || params.has("debug");
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
+const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection
+  ?.saveData;
 if (params.has("nothread") || !("WebGL2RenderingContext" in window)) return;
 if (!forced && (reduced || saveData)) return;
 ```

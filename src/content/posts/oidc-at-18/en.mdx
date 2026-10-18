@@ -3,7 +3,7 @@ title: "Building an OpenID Connect server at 18"
 description: "Christmas 2019: single sign-on for a Minecraft network, on its forum's accounts. What it needed, what I built in three weeks, what held up, and how I'd grow it today."
 slug: "oidc-at-18"
 published: 2026-10-15
-draft: true
+draft: false
 ---
 
 Over the Christmas holidays of 2019, between 14 December and 7 January, I wrote an OpenID Connect provider for LuminuNET, a Minecraft network whose accounts lived in a XenForo forum. I was 18 and still at school. The network was about to get its first web tools, and I wanted every one of them to know who you were the moment you'd logged in once with your forum account.
@@ -30,13 +30,13 @@ A TypeScript service on an alpha of Express 5, with a small Vue 2 frontend for t
 The part I'm still proudest of is the smallest. XenForo keeps each user's login data PHP-serialised in `xf_user_authenticate`, and PHP writes bcrypt hashes with a `$2y$` prefix. The Node bcrypt binding I used only accepted `$2a$` and `$2b$`. It's the same algorithm under PHP's label, so the service relabels the prefix and compares. From `packages/service/src/middleware/checks/authorize/loginChecks.ts`:
 
 ```ts
-const unserializedHash = unserialize(serializedHash[0]['data'].toString());
+const unserializedHash = unserialize(serializedHash[0]["data"].toString());
 
-let passwordHash: string = unserializedHash['hash'];
+let passwordHash: string = unserializedHash["hash"];
 
 // Need to replace the hash prefix because xenforo uses an old
 // hashing format and bcrypt doesn't support this anymore
-passwordHash = passwordHash.replace('y', 'a');
+passwordHash = passwordHash.replace("y", "a");
 ```
 
 The comment's reasoning is a little off (`$2y$` isn't older, it's PHP's own marker), and `replace('y', 'a')` works because the prefix guarantees the first `y` is the third character. But the result is exactly what the network needed: every forum account could sign in unchanged, no resets, no migration, and the forum stayed the one place that decided who someone was and which group they belonged to.
@@ -117,16 +117,16 @@ It reads as "DEV or DEVELOPMENT", and it's a lovely JavaScript puzzle: `||` retu
 Registering an app generated an RSA-4096 key pair just for it. From `packages/service/src/services/authorize/service.ts`:
 
 ```ts
-const { privateKey, publicKey } = await generateKeyPair('rsa', {
+const { privateKey, publicKey } = await generateKeyPair("rsa", {
   modulusLength: 4096,
   publicKeyEncoding: {
-    type: 'spki',
-    format: 'pem'
+    type: "spki",
+    format: "pem",
   },
   privateKeyEncoding: {
-    type: 'pkcs8',
-    format: 'pem'
-  }
+    type: "pkcs8",
+    format: "pem",
+  },
 });
 ```
 

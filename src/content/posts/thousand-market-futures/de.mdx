@@ -3,7 +3,7 @@ title: "1.000 Marktszenarien in einer reinen TypeScript-Engine"
 description: "Wie Zenarios bis zu 1.000 Marktszenarien auf dem Handy simuliert: Student-t-Renditen, AR(1)-Inflation, ein Generator pro Szenario und US-Börsengeschichte."
 slug: "tausend-marktszenarien"
 published: 2026-10-15
-draft: true
+draft: false
 ---
 
 Die Prognose in [Zenarios](/de/projekte/zenarios/) ist eine einzige Linie: die Annahmen des Plans, Monat für Monat verzinst. Nur bringen Märkte nicht jedes Jahr 5 %. Deshalb rechnet der Markt-Screen denselben Plan in bis zu 1.000 simulierten Marktszenarien durch und zeigt, wie oft das Geld reicht und wie weit die Ergebnisse auseinanderliegen. Der Fächer aus Linien auf der Startseite dieser Website ist genau diese Simulation, für den eingebauten Beispielhaushalt der App: 1.000 Szenarien mit je 645 Monaten, gerechnet von der Engine der App selbst und als Daten in diese Website eingecheckt.
@@ -170,7 +170,10 @@ Dieser Teil steckt nicht in der App, und das verwischt leicht. Die Engine rechne
 Die Startseite hat ein anderes Problem. Je nach Gerät zeichnet sie 1.000, 512 oder 256 der Linien, und 256 zufällige können die Extreme verfehlen. Dann wirkt der Fächer auf dem Handy schmaler als am Desktop. Deshalb sortiert der Generator dieser Website, `scripts/gen/zenarios.mjs`, die Szenarien nach ihrem Endvermögen und speichert sie in bitumgekehrter Rangfolge:
 
 ```js
-const finals = Array.from({ length: trials.count }, (_, t) => ({ t, v: trials.netWorth[t * years + years - 1] }));
+const finals = Array.from({ length: trials.count }, (_, t) => ({
+  t,
+  v: trials.netWorth[t * years + years - 1],
+}));
 finals.sort((a, b) => a.v - b.v);
 const bits = Math.ceil(Math.log2(trials.count));
 const order = [];

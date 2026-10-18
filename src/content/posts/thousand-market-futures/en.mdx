@@ -3,7 +3,7 @@ title: "1,000 market futures in a pure-TS engine"
 description: "How Zenarios simulates up to 1,000 market futures on the phone: Student-t returns, AR(1) inflation, a seeded generator per trial and US market history."
 slug: "thousand-market-futures"
 published: 2026-10-15
-draft: true
+draft: false
 ---
 
 The forecast in [Zenarios](/work/zenarios/) is a single line: the plan's own assumptions, compounded month by month. Markets don't return 5 % every year, though, so the Markets screen runs the same plan through up to 1,000 simulated futures and reports how often the money lasts and how wide the spread gets. The fan of lines on this site's home page is that simulation for the app's built-in example household: 1,000 futures of 645 months each, computed by the app's own engine and committed to this site as data.
@@ -170,7 +170,10 @@ This part isn't in the app, and it's easy to blur. The engine runs its trials in
 The home page has a different problem. Depending on the device it draws 1,000, 512 or 256 of the lines, and a random 256 can miss the extremes by chance, which would make the fan look narrower on a phone than on a desktop. So the site's generator, `scripts/gen/zenarios.mjs`, sorts the futures by their final net worth and stores them in bit-reversed rank order:
 
 ```js
-const finals = Array.from({ length: trials.count }, (_, t) => ({ t, v: trials.netWorth[t * years + years - 1] }));
+const finals = Array.from({ length: trials.count }, (_, t) => ({
+  t,
+  v: trials.netWorth[t * years + years - 1],
+}));
 finals.sort((a, b) => a.v - b.v);
 const bits = Math.ceil(Math.log2(trials.count));
 const order = [];
