@@ -1,9 +1,11 @@
 // llms.txt (llmstxt.org): who Constantin Metz is and where things are, for language models and AI
-// answer engines. English, with the German address of every page. Drafts are left out, and like
-// everything outside the history pages, it names no employers. "Last updated" is the newest change
-// to any page it lists (left out when the build has no git history).
+// answer engines. English, with the German address of every page. The facts and the questions and
+// answers come from src/data/about.ts, the same text as the About page, so the two never differ.
+// Drafts are left out, and like everything outside the history pages, it names no employers. "Last
+// updated" is the newest change to any page it lists (left out when the build has no git history).
 import type { APIRoute } from "astro";
 
+import { ABOUT, plainAnswer } from "../data/about";
 import { PERSON } from "../data/person";
 import { postPath, projectPath, route, type Locale, type RouteKey } from "../i18n/routes";
 import { getPosts, getProjects } from "../lib/content";
@@ -28,12 +30,16 @@ export const GET: APIRoute = async ({ site }) => {
     `> ${PERSON.name} (${PERSON.alternateName} on GitHub and GitLab) is a self-taught software engineer in Munich, Germany. He builds products end to end: the engine, the interface and the launch. This is his personal site, metz.uk, in English and in German.`,
     "",
     ...(updated ? [`Last updated: ${isoDay(updated)}`, ""] : []),
-    "- Based in Munich, Germany. Works with TypeScript, React and React Native, Node.js, Python and WebGL.",
-    "- Now builds AI for industrial quoting at a Y Combinator startup.",
-    "- Builds his own products alongside: the largest is Zenarios, a financial planning app for iPhone and Mac, designed and built alone.",
-    "- Open source: on the maintainers team of Sequelize, the Node.js ORM, 2020–2021.",
-    `- Contact: see ${abs(route("about", "en"))}`,
+    ...ABOUT.en.facts.map((f) => `- ${f.k}: ${f.v}`),
     "",
+    "## Questions and answers",
+    "",
+    ...ABOUT.en.answers.flatMap(({ q, a }) => [
+      `### ${q}`,
+      "",
+      plainAnswer(a, abs, `the address on the About page (${abs(route("about", "en"))})`),
+      "",
+    ]),
     "## About",
     "",
     both(

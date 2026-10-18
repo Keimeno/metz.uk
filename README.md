@@ -47,6 +47,11 @@ Every page exists twice: English at `/`, German at `/de/` with German slugs.
 - `src/content/{projects,posts}/<id>/{en,de}.mdx`: case studies and posts. `src/lib/content.ts`
   pairs them and fails the build if a language is missing or a project isn't in
   `src/data/projects.ts` (years, links, colour, station).
+- `src/data/about.ts`: the facts list and the "In short" questions and answers of the About page,
+  the canonical statement of who he is and what he does. The About pages draw them and `llms.txt`
+  is built from them. Update it first whenever his role or his projects change; the build fails
+  if "What has he built?" leaves out a project that has a station on the thread or its own live
+  address (in either language).
 - `src/data/history.ts`: the history timeline (the only place employers are named; `npm run verify`
   fails if one shows up anywhere else).
 

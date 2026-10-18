@@ -7,7 +7,9 @@
 // the sitemap lists exactly the indexable pages, with the same alternates as the pages, and the
 // portrait for the about pages; every og:image exists at the size the page claims; profile pages
 // carry the profile:* tags; titles fit in 65 characters and descriptions in 50–170 (errors on
-// indexable pages, warnings on drafts); llms.txt links only indexable pages; the IndexNow key file
+// indexable pages, warnings on drafts); robots.txt names the AI crawlers (GPTBot, OAI-SearchBot,
+// ClaudeBot, PerplexityBot, Google-Extended) and allows them everything; llms.txt links only
+// indexable pages; the IndexNow key file
 // is there. With the full git history, every sitemap URL has a <lastmod>, every profile page a
 // dateCreated and dateModified, and llms.txt a "Last updated" line (src/lib/dates.ts).
 //
@@ -36,6 +38,8 @@ const HOME_PAGES = new Set(["/", "/de/"]);
 const SHARED_IDS = new Set([`${SITE}/#person`, `${SITE}/#website`]);
 const TITLE_MAX = 65;
 const DESCRIPTION = [50, 170];
+/** Named in robots.txt, so the intent is explicit even though `*` already allows them. */
+const AI_CRAWLERS = ["GPTBot", "OAI-SearchBot", "ClaudeBot", "PerplexityBot", "Google-Extended"];
 const NEVER = /\b(One Window|Reefster|psandro|dbackup|loveydovey|seminararbeit)\b/i;
 /** His address in any spelling a scraper would match (Email.astro never ships it whole). */
 const EMAIL = /constantin(@|%40|&#0*64;|&#x0*40;|\s*[\[(]at[\])]\s*|\s+at\s+)metz\.uk/i;
@@ -374,6 +378,17 @@ if (!robots.includes(`Sitemap: ${SITE}/sitemap.xml`))
   problems.push("robots.txt: missing, or no Sitemap line");
 if (/^Disallow:\s*\/\s*$/m.test(robots))
   problems.push("robots.txt: disallows everything for someone");
+// The AI crawlers the site wants to be found by are named, each in a group that allows everything.
+for (const bot of AI_CRAWLERS) {
+  const group = robots
+    .split(/\n\s*\n/)
+    .find((g) =>
+      g.split("\n").some((l) => l.trim().toLowerCase() === `user-agent: ${bot.toLowerCase()}`)
+    );
+  if (!group) problems.push(`robots.txt: ${bot} isn't named`);
+  else if (!/^Allow:\s*\/\s*$/m.test(group) || /^Disallow:\s*\S/m.test(group))
+    problems.push(`robots.txt: ${bot} isn't allowed everything`);
+}
 const llms = existsSync(join(DIST, "llms.txt"))
   ? readFileSync(join(DIST, "llms.txt"), "utf8")
   : null;
