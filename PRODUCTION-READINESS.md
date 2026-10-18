@@ -17,17 +17,17 @@ What stands between this and launch is mostly a handful of real bugs, plus decis
 
 **Launch-blockers (9)**
 
-| # | Area | Problem |
-|---|---|---|
-| 1 | Layout | 14 of 36 pages scroll sideways on phones. Every case study and post with a code block is affected, Zenarios included (E4). |
-| 2 | Accessibility | With the thread on, screen readers, the Tab key and find-in-page can't reach any station text or link (A1). |
-| 3 | Robustness | A lost WebGL context, which iOS Safari causes in background tabs, leaves the home page blank (R1). |
-| 4 | Legal | The legal pages show TODO placeholders (C1). |
-| 5 | Content | All three posts are drafts, yet they are linked everywhere and the RSS feeds are empty (C2). |
-| 6 | Content | Several claims are false or overstated today: "PaperScores is offline", "a replay" on the home page, the CONSORT mapping, and "one sign-in for … the game" (C3). |
-| 7 | Privacy | The GPS-tagged portrait original isn't git-ignored, and the repo is planned to be public (X1). |
-| 8 | Engineering | There is no git repository (E1). |
-| 9 | Security | There are no security or cache headers and no Cloudflare deploy configuration (X2). |
+| #   | Area          | Problem                                                                                                                                                          |
+| --- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Layout        | 14 of 36 pages scroll sideways on phones. Every case study and post with a code block is affected, Zenarios included (E4).                                       |
+| 2   | Accessibility | With the thread on, screen readers, the Tab key and find-in-page can't reach any station text or link (A1).                                                      |
+| 3   | Robustness    | A lost WebGL context, which iOS Safari causes in background tabs, leaves the home page blank (R1).                                                               |
+| 4   | Legal         | The legal pages show TODO placeholders (C1).                                                                                                                     |
+| 5   | Content       | All three posts are drafts, yet they are linked everywhere and the RSS feeds are empty (C2).                                                                     |
+| 6   | Content       | Several claims are false or overstated today: "PaperScores is offline", "a replay" on the home page, the CONSORT mapping, and "one sign-in for … the game" (C3). |
+| 7   | Privacy       | The GPS-tagged portrait original isn't git-ignored, and the repo is planned to be public (X1).                                                                   |
+| 8   | Engineering   | There is no git repository (E1).                                                                                                                                 |
+| 9   | Security      | There are no security or cache headers and no Cloudflare deploy configuration (X2).                                                                              |
 
 **Should-fix items (about 35, plus the copy fixes in the appendices).** Main themes:
 
@@ -74,13 +74,14 @@ Findings are numbered by area: P performance, R robustness, A accessibility, C c
 
 Every finding below that has a **Fixed** or **Partly fixed** line was worked on in this pass. The rest is as the review found it. All of it is checked by `npm run verify`, which now runs `scripts/verify-dist.mjs` and the new `scripts/verify-browser.mjs` (headless Chrome against `dist/`, served like Cloudflare with the `_headers` CSP applied). Run against the pre-fix commit, that browser check reproduces every launch-blocker it covers: the same 14 pages overflow at 390 px; 3 headings vs 14; find and Tab can't reach the stations; 60 fps idle and under the curtain; context loss leaves 11 panels hidden. The current build passes all of it.
 
-| | Done in this pass |
-|---|---|
-| Launch-blockers | E4, A1, R1, X1, E1 (local only), X2 (configuration, not deployed), C3 (the parts that need no decision) |
-| Should-fix | A2, A3 (partly), P1 (partly), P2, P3, P4, P8, S1, S2, S3, X4 (partly), E3 (partly), Appendix B (partly) |
-| Measured after | Lighthouse mobile: `/` LCP **1.4 s** (was 2.10 s), 157 KB (was 228 KB), no render-blocking requests; `/work/zenarios/` LCP 1.2 s, 71 KB; all four categories 100 on both |
+|                 | Done in this pass                                                                                                                                                        |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Launch-blockers | E4, A1, R1, X1, E1 (local only), X2 (configuration, not deployed), C3 (the parts that need no decision)                                                                  |
+| Should-fix      | A2, A3 (partly), P1 (partly), P2, P3, P4, P8, S1, S2, S3, X4 (partly), E3 (partly), Appendix B (partly)                                                                  |
+| Measured after  | Lighthouse mobile: `/` LCP **1.4 s** (was 2.10 s), 157 KB (was 228 KB), no render-blocking requests; `/work/zenarios/` LCP 1.2 s, 71 KB; all four categories 100 on both |
 
 **Still needs Constantin** (unchanged by this pass):
+
 - C1: the c/o address, host, data processing agreement and log retention.
 - C2: publishing or hiding the posts.
 - C3: the PaperScores offline/link question and the OIDC "one sign-in" claim.
@@ -92,7 +93,6 @@ Every finding below that has a **Fixed** or **Partly fixed** line was worked on 
 - Whether the email should become readable to voice control before the first interaction (A3).
 - Before the repo goes public: `src/data/person.ts` and `src/data/legal.ts` hold the email in plain text, which `dist/` never does. The source is in the local commit too.
 
-
 ---
 
 ## 1. Performance
@@ -101,25 +101,25 @@ Every finding below that has a **Fixed** or **Partly fixed** line was worked on 
 
 **Lighthouse** (simulated mobile and desktop presets). On `/writing/how-the-thread-works/`, SEO is 66 only because the draft is `noindex`, and accessibility is 96 because of the code colours (A5). Every other category scores 100.
 
-| Page | Mobile perf | Mobile LCP | TBT | CLS | Transfer | Desktop perf | Desktop LCP |
-|---|---|---|---|---|---|---|---|
-| `/` | 99 | 2.10 s | 16 ms | 0 | 228 KB | 100 | 0.44 s |
-| `/de/` | 99 | 1.80 s | 8 ms | 0 | 228 KB | 100 | 0.40 s |
-| `/work/zenarios/` | 100 | 1.80 s | 0 | 0 | 143 KB | 100 | 0.41 s |
-| `/writing/how-the-thread-works/` | 100 | 1.21 s | 0 | 0 | 69 KB | 100 | 0.29 s |
-| `/about/` | 100 | 1.35 s | 0 | 0 | 95 KB | 100 | 0.33 s |
+| Page                             | Mobile perf | Mobile LCP | TBT   | CLS | Transfer | Desktop perf | Desktop LCP |
+| -------------------------------- | ----------- | ---------- | ----- | --- | -------- | ------------ | ----------- |
+| `/`                              | 99          | 2.10 s     | 16 ms | 0   | 228 KB   | 100          | 0.44 s      |
+| `/de/`                           | 99          | 1.80 s     | 8 ms  | 0   | 228 KB   | 100          | 0.40 s      |
+| `/work/zenarios/`                | 100         | 1.80 s     | 0     | 0   | 143 KB   | 100          | 0.41 s      |
+| `/writing/how-the-thread-works/` | 100         | 1.21 s     | 0     | 0   | 69 KB    | 100          | 0.29 s      |
+| `/about/`                        | 100         | 1.35 s     | 0     | 0   | 95 KB    | 100          | 0.33 s      |
 
 What `/` transfers (gzip):
 
-| Resource | Size |
-|---|---|
-| HTML | 7.5 KB |
-| CSS (two files) | 7.7 KB |
-| Fonts (two files) | 53 KB |
-| Boot script | 1.6 KB |
-| Thread chunk | 28 KB |
-| Zenarios JSON | 54 KB |
-| `zenarios-overview.jpg` | 80 KB |
+| Resource                | Size   |
+| ----------------------- | ------ |
+| HTML                    | 7.5 KB |
+| CSS (two files)         | 7.7 KB |
+| Fonts (two files)       | 53 KB  |
+| Boot script             | 1.6 KB |
+| Thread chunk            | 28 KB  |
+| Zenarios JSON           | 54 KB  |
+| `zenarios-overview.jpg` | 80 KB  |
 
 That is within the plan's 300 KB budget. The mobile LCP of 2.10 s misses the plan's 2.0 s target. The LCP element is the `<h1>`; 79 % of its time is render delay behind two blocking stylesheets.
 
@@ -127,36 +127,38 @@ That is within the plan's 300 KB budget. The mobile LCP of 2.10 s misses the pla
 
 The "Ready" column is the time from navigation to the first thread frame on the local server. "Init task" is the longest task during start-up. Frame times are uncapped (`--disable-frame-rate-limit`), so they measure the work per frame rather than vsync.
 
-| Viewport | CPU | Tier | Ready | Init task | Scroll frame p50 / p90 / p99 | Draws per frame |
-|---|---|---|---|---|---|---|
-| 1440×900 @2 | 1× (cold profile) | high | – | 230 ms | 1.6 / 2.7 / 3.3 ms | 13 |
-| 1440×900 @2 | 4× | high | 425 ms | 142 ms | 1.9 / 4.0 / 5.5 ms | 13 |
-| 1440×900 @1 | 6× | low (forced) | 781 ms | 220 ms | 2.0 / 4.8 / 6.7 ms | 6 |
-| 390×844 @3 | 4× | mid (auto) | 440 ms | 163 ms | 1.3 / 3.0 / 4.4 ms | 6 |
-| 390×844 @3 | 6× | mid (auto) | 570 ms | 199 ms | 2.6 / 5.4 / 7.3 ms | 6 |
-| 390×844 @3 | 6× | low (forced) | 551 ms | 189 ms | 2.5 / 5.5 / 8.8 ms | 6 |
+| Viewport    | CPU               | Tier         | Ready  | Init task | Scroll frame p50 / p90 / p99 | Draws per frame |
+| ----------- | ----------------- | ------------ | ------ | --------- | ---------------------------- | --------------- |
+| 1440×900 @2 | 1× (cold profile) | high         | –      | 230 ms    | 1.6 / 2.7 / 3.3 ms           | 13              |
+| 1440×900 @2 | 4×                | high         | 425 ms | 142 ms    | 1.9 / 4.0 / 5.5 ms           | 13              |
+| 1440×900 @1 | 6×                | low (forced) | 781 ms | 220 ms    | 2.0 / 4.8 / 6.7 ms           | 6               |
+| 390×844 @3  | 4×                | mid (auto)   | 440 ms | 163 ms    | 1.3 / 3.0 / 4.4 ms           | 6               |
+| 390×844 @3  | 6×                | mid (auto)   | 570 ms | 199 ms    | 2.6 / 5.4 / 7.3 ms           | 6               |
+| 390×844 @3  | 6×                | low (forced) | 551 ms | 189 ms    | 2.5 / 5.5 / 8.8 ms           | 6               |
 
 A CPU profile of start-up at 6× shows nothing dominant:
 
-| Function | Self time |
-|---|---|
-| shader compile | 21 ms |
-| scene build | 12 ms |
-| per-frame `render` | 74 ms over 5 s |
-| `FrameMonitor.percentile` | 18 ms |
-| garbage collection | 19 ms |
+| Function                  | Self time      |
+| ------------------------- | -------------- |
+| shader compile            | 21 ms          |
+| scene build               | 12 ms          |
+| per-frame `render`        | 74 ms over 5 s |
+| `FrameMonitor.percentile` | 18 ms          |
+| garbage collection        | 19 ms          |
 
 Taps that land during the init task:
 
 | CPU | Event duration | Of which input delay |
-|---|---|---|
-| 4× | 88–144 ms | 46–99 ms |
-| 6× | 104–160 ms | 69–114 ms |
+| --- | -------------- | -------------------- |
+| 4×  | 88–144 ms      | 46–99 ms             |
+| 6×  | 104–160 ms     | 69–114 ms            |
 
 These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 budget for init was 300 ms or less, so it passes.
 
 ### P1. The home page loads an 80 KB JPEG at high priority that nobody sees for three screens
+
 **should** · effort S
+
 > **Partly fixed (16 Oct).** AVIF (20 KB) and WebP (25 KB) next to the JPEG via `<picture>` on the home page and the case study (`scripts/gen/phone.mjs`, `src/lib/picture.ts`). On the home page the plane waits outside the clipped layer until 1.5 beats before its cue, when `sync.ts` switches its image to eager: `verify-browser` checks that it doesn't load with the page. Still soft on 3× screens: the original render isn't in any repo, so the 2× files need a source of 960 px or wider from Constantin (`node scripts/gen/phone.mjs <source>` makes them, and the markup picks them up).
 
 - **Evidence:**
@@ -169,7 +171,9 @@ These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 b
   - On the home page, give the `<img>` a `data-src` and set `src` when the `zen.title` cue starts (`sync.ts` already knows), or at least `fetchpriority="low"`.
 
 ### P2. Two render-blocking stylesheets on every page; the mobile LCP on `/` is 2.10 s
+
 **should** · effort S
+
 > **Fixed (16 Oct).** `build.inlineStylesheets: "always"`. Lighthouse mobile on `/`: no render-blocking requests, LCP 1.4 s.
 
 - **Evidence:**
@@ -181,7 +185,9 @@ These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 b
   - Cross-page CSS caching is worth little on a site this size.
 
 ### P3. Fonts aren't subset, and the arrows fall back to a system font
+
 **should** · effort S
+
 > **Fixed (16 Oct).** `scripts/gen/fonts.mjs` subsets the upstream Geist and Geist Mono variable fonts (`data/sources/fonts/`, OFL-1.1, from the `geist` npm package 1.7.2, which has → and ↗) to every character in `dist/` plus printable ASCII and German and typographic marks, keeping the weight axis and kern, liga, calt, tnum and case. 21.9 + 16.7 KB instead of 29.4 + 23.1 KB, hashed under `/_astro/`, both preloaded. `verify-dist` fails when a page shows a character the subsets lack (re-run the script then). δ, σ and ⁻ aren't in Geist at all and fall back as before. The `@fontsource-variable/*` packages are gone; the static `@fontsource/geist` files stay for the OG cards.
 
 - **Evidence:**
@@ -195,7 +201,9 @@ These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 b
   - Self-host the result with a hashed name and preload both files, since the mono kicker is above the fold.
 
 ### P4. The thread renders every frame even when nothing can be seen
+
 **should** · effort S–M
+
 > **Fixed (16 Oct).** The loop stops while `thread-past` is set and wakes on scroll, wheel, pointer, touch, keys, resize, focus or a class change. After 1.5 s with nothing moving (timeline, write-on, glint, pointer, sparks, kickers) it draws at about 20 fps, which keeps the drift, dust and pulse alive; it doesn't stop entirely, because those run on the clock. Throttled frames don't feed the quality watchdog. Measured: 20 fps idle at a station, 0 under the page below.
 
 - **Evidence:**
@@ -208,19 +216,25 @@ These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 b
   - Restart on `scroll` or `pointermove`. This is the "doesn't drain my battery" polish reviewers notice in Activity Monitor.
 
 ### P5. One 130–230 ms task at start-up
+
 **nice** · effort S
+
 - **Evidence:** the long tasks in the thread table above, and the tap delays listed with it.
 - **Fix:**
   - Use `KHR_parallel_shader_compile` when it is available, and poll `COMPLETION_STATUS_KHR` instead of blocking on `LINK_STATUS`.
   - Yield (`await new Promise(requestAnimationFrame)` or `scheduler.yield()`) between compiling, building the scene and the first frame.
 
 ### P6. The frame watchdog sorts an array every frame
+
 **nice** · effort S
+
 - **Evidence:** once warmed up, `FrameMonitor.struggling()` → `percentile(0.9)` (`src/thread/quality.ts:54-65`) runs `Array.from` plus `sort` over 120 floats on every frame: 17.6 ms self time and GC churn in 5 s at 6×.
 - **Fix:** keep a running count of frames over 18 ms in the ring buffer instead.
 
 ### P7. No measurement on real phones yet
+
 **should** · effort M (mostly Constantin's time with devices)
+
 - **Evidence:**
   - Gate 1 asked for at least 50 fps on an iPhone 13 and at least 30 fps on an iPhone SE or 11.
   - Everything above runs on an M-series GPU. CPU throttling shows the JavaScript is cheap, but not that an A13 GPU can fill 780×1688 with the 512-line fan.
@@ -229,7 +243,9 @@ These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 b
   - Check that the watchdog steps down rather than flapping.
 
 ### P8. No caching strategy yet
+
 **should** · effort S (part of X2)
+
 > **Fixed (16 Oct), not yet deployed.** The rules are in `public/_headers` (see X2). The `?v=<hash>` for `og:image` (S7) is not done.
 
 - **Evidence:** there is no `public/_headers`. The proposed rules are below.
@@ -244,6 +260,7 @@ These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 b
 ## 2. Robustness
 
 **Checked and working:**
+
 - **No JS:** the whole document renders and reads well on desktop and phone.
 - **`?nothread` and reduced motion:** they produce the same complete document (12 panels, 14 headings).
 - **Back/forward cache:** the page is restored, a JavaScript marker survived, and Chrome reported no blocking reasons.
@@ -251,7 +268,9 @@ These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 b
 - **Short desktop windows:** 1280×520 composes fine.
 
 ### R1. A lost WebGL context leaves the home page blank and drops the reader somewhere else
+
 **launch-blocker** · effort S (fallback) / M (real restore)
+
 > **Fixed (16 Oct): the fallback.** `stop()` now undoes everything `DomSync` and `Chrome` wrote (`sync.reset()`, `chrome.dispose()`): inline styles, `data-off`, label sides, the final text in every counter and kicker, `thread-past`, the chapter-link handlers. It then lands the reader on the panel they were reading, or keeps the page below exactly in place. `verify-browser` loses the context at Signals and below the thread on `/` and `/de/`. Both times: 14 headings, every panel visible, the page as tall as `?nothread`, the reader in place. Not done: rebuilding the GL resources on `webglcontextrestored`, so the thread could continue.
 
 - **Evidence:** I lost the context with `WEBGL_lose_context` while at Signals. `stop()` (`src/thread/main.ts:321-337`) removes `thread-on`, but:
@@ -267,12 +286,16 @@ These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 b
   - Add an e2e test for both cases (see E3).
 
 ### R2. Rotating a phone loses the reader's place
+
 **should** · effort S
+
 - **Evidence:** in portrait at y = 2,701 (the fan panel), then landscape (the station is kept), then portrait again: y = 1,247, which is t ≈ 1.5 between the intro and Zenarios, with no panel showing (`rot-back.png`). `resize()` (`main.ts:148-164`) re-measures sections but keeps the pixel scroll position, not the timeline position.
 - **Fix:** read `timeline.value` before re-measuring, then `scrollTo({ top: timeline.scrollFor(t), behavior: "instant" })` and `timeline.snap()` afterwards.
 
 ### R3. Direct anchors land on an empty frame, and chapter links never change the URL
+
 **should** · effort S
+
 - **Evidence:**
   - `/#signals` lands exactly at the start of the station, y = 4,320, with 0 of 12 panels visible: a dark screen with a line (`anchor-signals.png`).
   - Chapter clicks call `preventDefault()` (`src/thread/chrome.ts:25-28`), so there is no shareable deep link to a station.
@@ -282,7 +305,9 @@ These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 b
   - Handle `hashchange`.
 
 ### R4. No print styles; the home page prints 20 blank pages
+
 **should** · effort S
+
 - **Evidence:**
   - There is no `@media print` anywhere in `src/`.
   - Printing `/` with the thread on gives 20 PDF pages of dark background with all 12 panels hidden.
@@ -293,7 +318,9 @@ These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 b
   - About, History and the case studies are the pages most likely to be printed.
 
 ### R5. Landscape phones and short windows: a panel collides with the chapter list
+
 **should** · effort S
+
 - **Evidence:**
   - At 844×390 the chapter list shows (width over 760 and landscape), and the vertically centred panel is taller than the room it has.
   - The kicker "1,000 FUTURES" overlaps "03 PaperScores 04 Origins" (`rot-landscape.png`).
@@ -301,7 +328,9 @@ These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 b
   - `@media (max-height: 520px)`: hide `.chapters`, shrink the panel's `h2` and body, and anchor the panel below the header instead of `top: 50%; translate: 0 -50%`.
 
 ### R6. Very narrow screens: the `<h1>` is wider than the screen
+
 **should** · effort S
+
 - **Evidence:**
   - `.intro__name` is `white-space: nowrap` with `font-size: clamp(44px, 9.2vw, 156px)` (`Thread.astro:437-443`).
   - At 280 px (a folded Galaxy Fold) the `<h1>` and the lede reach 296 px.
@@ -309,7 +338,9 @@ These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 b
 - **Fix:** `font-size: clamp(34px, 12vw, 156px)`, or allow it to wrap below 340 px. The thread measures the real `<h1>`, so it follows.
 
 ### R7. On a stalled network, the stations stay invisible for up to 10 s
+
 **should** · effort S
+
 - **Evidence:**
   - `thread-on` is decided before first paint. Until `thread-ready`, every non-intro station is `visibility: hidden` (`Thread.astro:415-417`).
   - `GIVE_UP_MS` is 10,000 (`boot.ts:9`). On a slow connection, a reader who starts scrolling sees about 15 empty screens.
@@ -318,7 +349,9 @@ These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 b
   - Or, if the reader scrolls past the intro before `thread-ready`, fall back to the document layout at once; `main.ts` already knows how to resume the thread from a reading position.
 
 ### R8. Very wide and tablet-portrait screens leave the composition empty
+
 **nice** · effort M
+
 - **Evidence:**
   - At 3440×1440 the panel stays 440 px wide at the far right, with type capped at 42 px, while the figure sits on the left (`vp-ultrawide-2.85.png`).
   - An iPad Pro in portrait (1024×1366) gets the phone layout, with a large empty band between figure and text (`vp-ipadpro-portrait-2.85.png`).
@@ -327,7 +360,9 @@ These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 b
   - For tablets in portrait, place the panel at about 60 % height instead of the bottom.
 
 ### R9. Reduced motion is read once, and there is no in-page way to turn motion off
+
 **nice** · effort S (see L6)
+
 - **Evidence:** the head script in `Home.astro:31-41` reads `prefers-reduced-motion` once. Changing the setting mid-visit does nothing, and visitors who get motion-sick but haven't set the OS preference have no switch.
 - **Fix:** listen for `matchMedia(...).addEventListener("change")` and call `stop()` (once R1 makes `stop()` clean). Add the "Plain version" toggle (L6).
 
@@ -336,14 +371,15 @@ These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 b
 ## 3. Accessibility
 
 **Checked and working:**
+
 - **Contrast:**
 
-  | Colour | On `--ink` | On `--ink-3` |
-  |---|---|---|
-  | text | 16.5:1 | – |
-  | text-2 | 11.4:1 | – |
-  | muted `#8C8A85` | 5.70:1 | 4.98:1 |
-  | station tints | ≥ 9.5:1 | – |
+  | Colour          | On `--ink` | On `--ink-3` |
+  | --------------- | ---------- | ------------ |
+  | text            | 16.5:1     | –            |
+  | text-2          | 11.4:1     | –            |
+  | muted `#8C8A85` | 5.70:1     | 4.98:1       |
+  | station tints   | ≥ 9.5:1    | –            |
 
 - **Focus and skip link:** `:focus-visible` gives a 2 px ring, and the skip link works.
 - **Structure:** every page has exactly one `<h1>` (checked by `verify`).
@@ -351,21 +387,23 @@ These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 b
 - **Canvas:** it is `aria-hidden`, and keyboard scrolling works.
 
 ### A1. With the thread on, assistive technology, Tab and find-in-page can't reach the stations
+
 **launch-blocker** · effort M
+
 > **Fixed (16 Oct), with one change of plan.** Panels, labels and planes outside their cue now get `data-off` (opacity 0, links unclickable) instead of `visibility: hidden`, and so does the layer before `thread-ready`. A `focusin` anywhere in a panel scrolls the timeline to its cue. `verify-browser`: 14 headings with the thread on and off on both home pages, `window.find` reaches "Deepgram", "CONSORT" and "Sequelize", and Tab reaches all 9 links in the thread, each panel coming up. **`hidden="until-found"` is not used:** measured in Chrome 155, it drops the content from the accessibility tree and the Tab order, which would undo the two points above. Instead, a selection that lies inside one panel scrolls to that panel. Chrome and Safari select the find match when the find bar closes, and Firefox as it searches. The match is found while the bar is open, but its panel only comes up on close in Chrome. Still to do: a VoiceOver pass on a real device (P7).
 
 - **Evidence:** at page load, the accessibility tree compares like this:
 
-  | | Thread on | `?nothread` |
-  |---|---|---|
-  | Headings | 3 | 14 |
-  | Links | 31 | 39 |
-
+  |          | Thread on | `?nothread` |
+  | -------- | --------- | ----------- |
+  | Headings | 3         | 14          |
+  | Links    | 31        | 39          |
   - **Missing with the thread on:** "View on the App Store", all four "Case study" links, "The full history", and the end panel's email, "All work" and "About me".
-  - **Tab order:** Tab goes from "Deutsch" in the header straight to "Lexicon Bluff" at y = 15,163.
+  - **Tab order:** Tab goes from "Deutsch" in the header straight to "Stet" at y = 15,163.
   - **Find-in-page:** `window.find()` for "Deepgram" and "CONSORT" returns false with the thread on and true with `?nothread`. Cmd+F behaves the same.
   - **Cause:** `DomSync` sets `visibility: hidden` on every panel, label and plane outside its cue (`src/thread/sync.ts:126, 166, 179`), and `visibility: hidden` removes content from the accessibility tree, the focus order and find.
   - **Who is affected:** screen-reader users rarely set reduced motion, so they get the thread and a home page that is just the name, then "More things I've built". Crawlers that render WebGL also see the station copy hidden.
+
 - **Fix:**
   - Hide inactive panels with `opacity: 0` (they already ignore pointer events) instead of `visibility`, so their text stays in the tree and in find.
   - Add a `focusin` listener on the panels that scrolls the timeline to that panel's cue: `scrollToT(cueMid)`, reusing `Chrome`'s `scrollTo`.
@@ -373,7 +411,9 @@ These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 b
   - Test with VoiceOver on iOS and macOS. The rotor's Headings list should show all 14.
 
 ### A2. Word splitting, scrambled kickers and counters change what assistive technology reads
+
 **should** · effort S
+
 > **Fixed (16 Oct).** Each animated element keeps its real text in a visually hidden span; the split words, the decoding kicker and the counter play on an `aria-hidden` copy (`twin()` in `sync.ts`). Find "1,000" and screen readers get the real values from the first frame.
 
 - **Evidence:**
@@ -383,11 +423,13 @@ These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 b
 - **Fix:** keep the real text in the DOM and animate an `aria-hidden` copy. For example `<h2><span class="visually-hidden">…</span><span aria-hidden="true" data-words>…</span></h2>`; do the same for counters and scramble kickers.
 
 ### A3. The email link's accessible name doesn't match its visible text, and screen-reader activation goes to the imprint
+
 **should** · effort S
+
 > **Partly fixed (16 Oct).** A capturing `click` now upgrades the link before its default action, so a screen reader's bare click opens mail instead of the imprint. The reversed address moved into CSS generated content (`attr(data-addr)`, `aria-hidden`), so copy-paste and Reader mode no longer give a reversed string, and Lighthouse's `label-content-name-mismatch` no longer applies. Still open, for Constantin: before the first interaction the accessible name is "Email Constantin Metz", not the address, so WCAG 2.5.3 is only fully met if the address (or "constantin at metz dot uk") appears in the HTML.
 
 - **Evidence:**
-  - Lighthouse fails `label-content-name-mismatch` on every page. The visible text is "constantin@metz.uk" but the name is "Email Constantin Metz" (`src/components/ui/Email.astro:26`). This is WCAG 2.5.3, level A: a voice-control user saying "click constantin@metz.uk" gets nothing.
+  - Lighthouse fails `label-content-name-mismatch` on every page. The visible text is his address but the name is "Email Constantin Metz" (`src/components/ui/Email.astro:26`). This is WCAG 2.5.3, level A: a voice-control user saying "click" plus the visible address gets nothing.
   - The upgrade waits for `pointermove`, `pointerdown`, `touchstart`, `keydown` or `focusin` (`:45`). NVDA in browse mode activates links with a plain `click`, which fires none of these, so the user lands on /imprint.
   - Before the upgrade, Safari Reader and copy-paste give `ku.ztem@nitnatsnoc`.
 - **Fix:**
@@ -396,7 +438,9 @@ These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 b
   - On the Impressum only, consider plain text (see C1). Constantin decides the trade-off.
 
 ### A4. The home header has no way to Work, About or Writing, and phones get only the name and "DE"
+
 **should** · effort S
+
 - **Evidence:**
   - The home header (`Thread.astro:46-60`) holds the mark, five chapter links and the language switch.
   - Below 760 px the chapters are hidden (`:1049-1054`), so a phone visitor who wants About scrolls about 16 screens or uses the footer.
@@ -407,12 +451,16 @@ These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 b
   - Make the mark `inert` (or `tabindex="-1"`) until it is visible.
 
 ### A5. Code comments in the posts fail contrast
+
 **should** · effort S
+
 - **Evidence:** Lighthouse `color-contrast` on the posts. Shiki's default `github-dark` comment colour `#6A737D` measures 3.82:1 on the forced `pre` background (`--ink-2`, `global.css:270-278`), and 3.05:1 on Shiki's own background.
 - **Fix:** use a custom Shiki theme, or override `.astro-code` comment tokens to `#8C8A85` (5.33:1 on `--ink-2`).
 
 ### A6. No forced-colours mode
+
 **nice** · effort S
+
 - **Evidence:** in Windows High Contrast (`forced-colors: active`) the canvas still draws, and the panel text is forced to system colours over it.
 - **Fix:** add `(forced-colors: active)` to the head script's gates, so those visitors get the document layout.
 
@@ -423,19 +471,23 @@ These are inside "good" INP (under 200 ms), but not by much. The plan's Gate 1 b
 The full content review, with all 33 German suggestions and the per-project fact-checks, is condensed into Appendices A and B.
 
 ### C1. Visible placeholders on the legal pages
+
 **launch-blocker** · effort S · **needs Constantin**
+
 - **Evidence:**
   - `src/data/legal.ts:3,11`: `"c/o [address service — TODO]"`, `"[Street and number — TODO]"`, `"[Postcode] München — TODO"`.
   - `LegalPage.astro:110-126` (DE) and `:191-207` (EN): the host, retention period and data processing agreement are shown to visitors as TODOs.
 - **Fix:** Constantin supplies:
-  - The c/o address. Pick a service that explicitly accepts Impressum use; whether a c/o address counts as a *ladungsfähige Anschrift* is disputed in German courts.
+  - The c/o address. Pick a service that explicitly accepts Impressum use; whether a c/o address counts as a _ladungsfähige Anschrift_ is disputed in German courts.
   - The Cloudflare contracting entity and data processing agreement (Cloudflare's DPA is part of the self-serve terms).
   - The actual log retention period.
   - The structure is already right: § 5 DDG, § 18 (2) MStV (needed because of the Writing section), Art. 6 (1)(f), the DPF transfer, Art. 15–21 and 77, and BayLDA.
   - Two small additions: give the Art. 21 objection right its own heading, and write the hoster's retention as a number of days.
 
 ### C2. All three posts are drafts, yet they are linked from everywhere, and the RSS feeds are empty
+
 **launch-blocker** · effort M · **needs Constantin**
+
 - **Evidence:**
   - `draft: true` in all six post files.
   - "Draft" badges show in the home teaser (`HomeAfter.astro:66`) and on /writing.
@@ -444,8 +496,11 @@ The full content review, with all 33 German suggestions and the per-project fact
 - **Fix:** either review the posts and publish them (German approval first), or hide drafts from all lists, remove the inbound links, and hide the RSS link until the first post is out. "How the Thread works" is also the planned Hacker News and backlink piece, so publishing it matters for SEO (see section 9).
 
 ### C3. Claims that are false or overstated today
+
 **launch-blocker** · effort S · **some need Constantin**
+
 > **Partly fixed (16 Oct): everything that needed no decision.**
+>
 > - Home Signals note: "An illustration · drawn on the real configuration of 37 subreddits" (DE: „Eine Illustration · gezeichnet auf der echten Konfiguration mit 37 Subreddits“). The document version's figure label is now "An illustrative trend, spreading" (DE „Ein Beispieltrend breitet sich aus“).
 > - Home PaperScores: "six dimensions, with checklists aligned with CONSORT and related standards, and findings that point to the page they came from, where there is one" (DE to match). The case study's "every check carries … an evidence anchor" now reads "where the paper offers one" (EN and DE).
 > - Home LiveTranslate: "every line types itself out on screen" instead of "word by word" (DE „jede Zeile tippt sich auf dem Bildschirm aus“).
@@ -459,40 +514,45 @@ The full content review, with all 33 German suggestions and the per-project fact
   - **Home PaperScores** (`home.ts:144`, DE `:253`) says "six dimensions mapped to CONSORT and Cochrane's risk-of-bias tool, every finding citing the page it came from".
     - The six subscores aren't mapped to CONSORT; only the RCT checklist module is CONSORT-aligned, which the case study states correctly.
     - `Check.evidence` is nullable, and about half the checks in the real scorecard have no page.
-    - The example paper is from *Psyke & Logos*, a psychology journal, while the H2 says "medical research".
+    - The example paper is from _Psyke & Logos_, a psychology journal, while the H2 says "medical research".
     - Reword to "Checklists aligned with CONSORT and related standards; findings point to the passage where one exists".
   - **The home Origins H2 says "One sign-in for the forum, the website and the game"** (`home.ts:162`, DE `:271`; also `history.ts:61`).
-    - The forum is the identity *source*. No LuminuNET repo references the provider as a client.
+    - The forum is the identity _source_. No LuminuNET repo references the provider as a client.
     - Constantin should confirm which clients really used it. Otherwise: "Single sign-on for the network's web apps, on the forum's accounts".
-  - The precision fixes are in Appendix B: Signals 54 % (30–77 %, not 27–80 %); CarCost EV cap 100,000 € since July 2025; "1.03 billion daily rows"; LiveTranslate "word by word"; OIDC "back to the consent page"; and others.
+  - The precision fixes are in Appendix B: Signals 54 % (30–77 %, not 27–80 %); Unterm Strich EV cap 100,000 € since July 2025; "1.03 billion daily rows"; LiveTranslate "word by word"; OIDC "back to the consent page"; and others.
 
 ### C4. Thin case studies with no product images
+
 **should** · effort M
+
 - **Evidence** (thinnest first):
 
-  | Project | Problem |
-  |---|---|
-  | Travel cost calculator | 626 words, no link, no repo, no image |
-  | CarCost | 686 words, no link (no deployment found), no image |
-  | segno | 492 words; it has links |
-  | Lexicon Bluff | live, but no picture |
-  | Origins | only a thread still |
-  | PaperScores | only a still, private repo, no link |
-  | Signals | only a still |
-  | Zenarios | one soft phone JPEG |
+  | Project                | Problem                                            |
+  | ---------------------- | -------------------------------------------------- |
+  | Travel cost calculator | 626 words, no link, no repo, no image              |
+  | Unterm Strich          | 686 words, no link (no deployment found), no image |
+  | segno                  | 492 words; it has links                            |
+  | Stet                   | live, but no picture                               |
+  | Origins                | only a thread still                                |
+  | PaperScores            | only a still, private repo, no link                |
+  | Signals                | only a still                                       |
+  | Zenarios               | one soft phone JPEG                                |
 
   The heroes of the four index projects are a generic glow SVG.
+
 - **Assets that exist:**
   - Zenarios: `zenarios-app/store-screenshots/iphone-6.3/01…10` (1206×2622), the showreel MP4 and its stills h1–h7.
   - LiveTranslate: `app.png` (2682×1646).
   - PaperScores: `data/sources/paperscores/scorecard.json`, which can be rendered as an HTML scorecard figure.
 - **Fix:**
   - Give each study at least one real artefact with a `<figcaption>`.
-  - Deploy CarCost, a static Vite PWA, so "trust me" becomes a demo.
+  - Deploy Unterm Strich, a static Vite PWA, so "trust me" becomes a demo.
   - Constantin may consider leaving the travel calculator out of the launch.
 
 ### C5. German copy reads as translated in about 33 places
+
 **should** · effort S · **needs Constantin's approval**
+
 - **Evidence:** typography and number formats are correct throughout („…“, 1.000, 90,6 %, 0,099, 1-%-Regel). The real problems:
   - One mistranslation: `history.ts:62` „die Webseite des Minecraft-Netzwerks" for "the web side".
   - Calques: „umzog / nach TypeScript brachte / TypeScript-Nutzer brechen", „Erwachsen geworden würde er…", and „Eine Reise hat Daten".
@@ -501,7 +561,9 @@ The full content review, with all 33 German suggestions and the per-project fact
 - **Fix:** Appendix A has a concrete rewording for each.
 
 ### C6. Tone breaks against the "optimistic retrospective" rule
+
 **should** · effort S
+
 - **Evidence:**
   - The /writing OG card subtitle reads "How they work, and what I got wrong." / „…was ich falsch gemacht habe." (`src/lib/pages.ts:76, 81`; already rendered into `dist/og/writing.png` and `dist/og/de/texte.png`).
   - The travel calculator's "Status" section is a list of defects (`travel-cost-calculator/en.mdx:34-36`).
@@ -509,7 +571,9 @@ The full content review, with all 33 German suggestions and the per-project fact
 - **Fix:** Appendix A, last table.
 
 ### C7. Other gaps
+
 **should** · effort S each
+
 - The /history screenshot of keimeno.party is missing ("Screenshot to come"). Capture 1600×1000 from the Wayback snapshot.
 - Dates that read as "finished" or will go stale:
   - Zenarios "Mar 2025 – Oct 2026" → "since March 2025".
@@ -528,6 +592,7 @@ The full content review, with all 33 German suggestions and the per-project fact
 ## 5. SEO and sharing
 
 **Checked and working:**
+
 - OG cards render well; I looked at the home and German OIDC cards. They are 1200×630 palette PNGs of 40–131 KB, and `twitter:image` equals `og:image`.
 - `verify` checks canonical, hreflang (including x-default), the sitemap and the JSON-LD `@id` graph.
 - `Person.image` now resolves to the stripped portrait.
@@ -535,7 +600,9 @@ The full content review, with all 33 German suggestions and the per-project fact
 - llms.txt names no employers and no email.
 
 ### S1. Incomplete favicon set and no web manifest
+
 **should** · effort S
+
 > **Fixed (16 Oct).** `scripts/gen/icons.mjs` makes `favicon.ico` (16/32/48), `apple-touch-icon.png` (180, opaque) and `icon-192/512.png` from `favicon.svg`; `site.webmanifest` as proposed; all linked in `Base.astro`.
 
 - **Evidence:** only `/favicon.svg` exists (`Base.astro:109`). These all return 404: `/favicon.ico` (still requested by RSS readers, some crawlers and older browsers), `/apple-touch-icon.png` (iOS home screen and Safari bookmarks) and `/manifest.webmanifest`.
@@ -545,14 +612,18 @@ The full content review, with all 33 German suggestions and the per-project fact
   - Link them all in `Base.astro`. `theme-color` is already set.
 
 ### S2. The 404 is English-first, even under /de/
+
 **should** · effort S
+
 > **Fixed (16 Oct).** `src/pages/de/404.astro`, German first with an English line; the build moves it to `dist/de/404.html` (`scripts/build/post-build.mjs`), and `wrangler.jsonc` has `not_found_handling: "404-page"`. The root 404 keeps both languages for German visitors who mistype a path without `/de/`.
 
 - **Evidence:** `/de/gibts-nicht/` returns 404 with the English page: English nav, "Not found" first, and no language switch (`src/pages/404.astro`).
 - **Fix:** add `src/pages/de/404.astro`. With `not_found_handling: "404-page"`, Cloudflare serves the nearest `404.html` up the path, so `/de/*` misses get the German one. See also L1.
 
 ### S3. Trailing slashes and duplicate URLs
+
 **should** · effort S
+
 > **Fixed (16 Oct).** `trailingSlash: "always"`; `verify-dist` fails on internal page links without a slash; `html_handling: "auto-trailing-slash"` in `wrangler.jsonc`. The curl checks after deploy are still to do.
 
 - **Evidence:**
@@ -563,7 +634,9 @@ The full content review, with all 33 German suggestions and the per-project fact
   - After deploy, curl-check: `/work` → `/work/`, `/index.html` → `/`, `www` → apex 301, and http → https.
 
 ### S4. Structured data: app nodes will show as invalid in Search Console
+
 **should** · effort S
+
 - **Evidence:** the project nodes typed `MobileApplication`/`WebApplication` have no `offers` or `aggregateRating`, so Search Console's "Software apps" report will list them as invalid items (Phase 5 hand-over). The App Store listing confirms Zenarios is free.
 - **Fix:**
   - Add `offers: { "@type": "Offer", "price": 0, "priceCurrency": "EUR" }` to Zenarios.
@@ -571,15 +644,21 @@ The full content review, with all 33 German suggestions and the per-project fact
   - Run the Rich Results Test and validator.schema.org on `/about/` and `/work/zenarios/` once the site is live.
 
 ### S5. The sitemap has no `<lastmod>`
+
 **nice** · effort S
+
 - **Fix:** take it from a content `updated:` field (C7). Bing uses it, and Google does when it is accurate.
 
 ### S6. The home OG card is text-only
+
 **nice** · effort S
+
 - **Fix:** shared links should look like the site. Render the end constellation or the name write-on with `scripts/gen/stills.mjs` and use it as the home card's background.
 
 ### S7. OG image URLs never change
+
 **nice** · effort S
+
 - **Fix:** add `?v=<hash>` to `og:image`, so link previews refresh after an edit (see P8).
 
 ---
@@ -587,6 +666,7 @@ The full content review, with all 33 German suggestions and the per-project fact
 ## 6. Security and privacy
 
 **Checked and working:**
+
 - **No third-party requests.** Every request in Lighthouse's network list is same-origin, and outbound URLs exist only as links.
 - **No cookies or storage.** There is no `localStorage`, `sessionStorage` or `document.cookie` code.
 - **No plain email in `dist/`.**
@@ -602,7 +682,9 @@ The full content review, with all 33 German suggestions and the per-project fact
   - The portrait files are stripped, and the OG PNGs have no text chunks.
 
 ### X1. The GPS-tagged portrait original isn't git-ignored, and the repo is planned to be public
+
 **launch-blocker** · effort S
+
 > **Fixed (16 Oct).** `.gitignore` excludes `data/sources/portrait/` (written before `git init`) plus `.env*`, `.wrangler/`, test and Lighthouse output. `verify-dist` now fails on GPS EXIF or XMP in any image in `dist/`, and on the email in plain, URL-encoded or entity form in any text file. Both were checked against a planted file. The original is still in `data/sources/portrait/`, ignored, not moved.
 
 - **Evidence:** `data/sources/portrait/constantin-portrait.jpeg` (512 KB) has a 10 KB EXIF block (iPhone 12 Pro, 2024-02-17, GPS per the hand-over). `.gitignore` lists only `node_modules dist .astro .cache .DS_Store`.
@@ -612,7 +694,9 @@ The full content review, with all 33 German suggestions and the per-project fact
   - `verify-dist` currently doesn't check for the email either. Add a regex check for `@metz\.uk` and `%40metz` across all text files in `dist/`.
 
 ### X2. No security headers or CSP for the Cloudflare deploy
+
 **launch-blocker** · effort S–M
+
 > **Fixed (16 Oct), configuration only, not deployed.** `public/_headers` has the CSP and headers proposed here plus the cache rules (P8). The build replaces a placeholder with the hashes of the inline scripts it finds (3 today). `verify-dist` fails on any inline script the CSP doesn't allow, on inline event handlers and on resources from other origins. `verify-browser` serves `dist/` with these headers and fails on any CSP violation. CSP stays in the header, not Astro's `security.csp`, so the `style=""` attributes keep working. `wrangler.jsonc`: static assets from `./dist`, `404-page`, `auto-trailing-slash`. Still to do after deploy: check with curl or securityheaders.com.
 
 - **Evidence:**
@@ -644,7 +728,9 @@ The full content review, with all 33 German suggestions and the per-project fact
   - Phase 6 sound synthesises in code, so it needs no `media-src`. An AudioWorklet would need `script-src 'self'`, which is already allowed.
 
 ### X3. Cloudflare features that would break "no third parties, no cookies"
+
 **should** · effort S (checklist)
+
 - **Evidence:** the privacy page promises no cookies, and `connect-src` and `script-src` above are `'self'` only.
 - **Fix:** in the zone, keep these off:
   - Web Analytics (injects a beacon from `static.cloudflareinsights.com`)
@@ -656,14 +742,18 @@ The full content review, with all 33 German suggestions and the per-project fact
   After launch, open DevTools → Application → Cookies on metz.uk and confirm it is empty.
 
 ### X4. Preview deploys must not be indexed
+
 **should** · effort S
+
 > **Partly fixed (16 Oct).** `_headers` sends `X-Robots-Tag: noindex` for `https://:worker.:account.workers.dev/*`. Check on the first preview deploy that the host pattern matches. `robots.txt` doesn't yet differ for previews.
 
 - **Evidence:** a `*.workers.dev` preview would serve the same `Allow: /` robots.txt, and its canonicals point at metz.uk. Drafts and unfinished work become crawlable.
 - **Fix:** for non-production builds (an env var), emit `X-Robots-Tag: noindex` plus `Disallow: /`, or put previews behind Cloudflare Access.
 
 ### X5. security.txt
+
 **nice** · effort S
+
 - **Fix:** add `/.well-known/security.txt` with `Contact: https://metz.uk/imprint/` (RFC 9116 allows an https URI, so the address stays out of plain text) and an `Expires` date.
 
 ---
@@ -671,25 +761,31 @@ The full content review, with all 33 German suggestions and the per-project fact
 ## 7. Engineering hygiene
 
 ### E1. Not a git repository
+
 **launch-blocker** · effort S
-> **Fixed (16 Oct), locally.** `git init` on `main` after the `.gitignore` (X1), with the repo-local identity `Constantin Metz <constantin@metz.uk>`. No gitleaks was installed, so a pattern scan ran instead (keys, tokens, private keys, emails, image GPS): clean. One baseline commit, `6ceacb4`, holds the site as reviewed; this pass's fixes are uncommitted on top, for review. No remote, no push.
+
+> **Fixed (16 Oct), locally.** `git init` on `main` after the `.gitignore` (X1), with the repo-local identity `Constantin Metz` with his metz.uk address. No gitleaks was installed, so a pattern scan ran instead (keys, tokens, private keys, emails, image GPS): clean. One baseline commit, `6ceacb4`, holds the site as reviewed; this pass's fixes are uncommitted on top, for review. No remote, no push.
 
 - **Evidence:** `git status` fails with "not a git repository". Nothing is versioned, including the generated data and the hand-tuned shaders.
 - **Fix:**
   1. Fix `.gitignore` first (X1), and add `.env*`, `.wrangler/`, `test-results/`, `playwright-report/` and `.lighthouseci/`.
   2. `git init`, then run `gitleaks detect` or a similar secret/PII scan.
   3. Make the first commit and push to `Keimeno/metz.uk`.
-  4. Commit as `constantin@metz.uk`, as he already does elsewhere.
+  4. Commit with his metz.uk address, as he already does elsewhere.
 
 ### E2. No licence chosen for the public repo
+
 **should** · effort S · **needs Constantin**
+
 - **Fix:**
   - Suggested: MIT for the code (segno already uses MIT).
   - For text, case studies, the portrait, the OG cards and the generated data: "All rights reserved", or CC BY-NC-ND 4.0. Put it in a separate `LICENSE-content` and state it in the README.
   - Geist is OFL-1.1 and arrives via npm, which is fine.
 
 ### E3. No tests
+
 **should** · effort M
+
 > **Partly fixed (16 Oct).** `npm run verify` now includes `scripts/verify-browser.mjs` (headless Chrome over CDP, no new dependencies). It checks: no overflow at 390 and 320 px on every page; AX headings with the thread on vs `?nothread`; find; Tab through the thread; phone-image deferral; idle and covered frame rates; context loss at a station and below the thread; console errors and CSP violations. Not done: Vitest units, WebKit, language-switch and anchor tests (R3 isn't fixed).
 
 - **Evidence:** there are no Vitest or Playwright configs, although the plan specified both. `verify-dist.mjs` is good but static.
@@ -713,10 +809,13 @@ The full content review, with all 33 German suggestions and the per-project fact
     - screenshot diffs at holds (the logic from `cdp-shots.mjs`)
 
 ### E4. 14 of 36 pages scroll sideways on phones
+
 **launch-blocker** · effort S
-> **Fixed (16 Oct).** `.case__body .prose { width: 100%; min-width: 0 }` and `.post { grid-template-columns: minmax(0, 1fr) }`. The new browser check also found `/de/projekte/carcost/` 7 px too wide at 320 px ("Reisekostenrechner" in the next-project link), fixed with `hyphens: auto; overflow-wrap: anywhere`. Now 0 of 40 pages are wider than the screen, at 390 or 320 px.
+
+> **Fixed (16 Oct).** `.case__body .prose { width: 100%; min-width: 0 }` and `.post { grid-template-columns: minmax(0, 1fr) }`. The new browser check also found `/de/projekte/unterm-strich/` 7 px too wide at 320 px ("Reisekostenrechner" in the next-project link), fixed with `hyphens: auto; overflow-wrap: anywhere`. Now 0 of 40 pages are wider than the screen, at 390 or 320 px.
 
 I filed this under engineering because a test would have caught it, but it is a layout bug.
+
 - **Evidence:**
   - At 390 px, the page width is 591–700 px on 14 pages:
     - `/work/` zenarios, signals, lexicon-bluff, segno
@@ -732,7 +831,9 @@ I filed this under engineering because a test would have caught it, but it is a 
   - Add the overflow test from E3.
 
 ### E5. No CI
+
 **should** · effort M
+
 - **Fix:**
   - GitHub Actions: `npm ci` → `prettier --check` → `astro check` → `astro build` → `npm run verify` → Playwright → Lighthouse CI.
   - `prettier --check` currently fails on 49 files; run `npm run format` once, in its own commit.
@@ -741,14 +842,18 @@ I filed this under engineering because a test would have caught it, but it is a 
   - Keep `scripts/gen/zenarios.mjs` out of CI, since it needs the app repo; CI uses the committed outputs, as the plan said.
 
 ### E6. No deploy pipeline or preview deploys
+
 **should** · effort M
+
 - **Fix:**
   - A `wrangler.jsonc` with `assets.directory: "./dist"`, `not_found_handling: "404-page"` and `html_handling: "auto-trailing-slash"`.
   - Cloudflare Workers Builds (Git integration) or `cloudflare/wrangler-action`: production on `main`, plus a preview URL per pull request.
   - Previews are noindex (X4). Comment the preview URL on the PR and run Lighthouse CI against it.
 
 ### E7. Dependency pinning
+
 **should** · effort S
+
 - **Evidence:**
   - Caret ranges on `astro` (^7.4.0), `@astrojs/mdx`, `@astrojs/rss`, the variable fonts and the dev tools.
   - satori, resvg and sharp are pinned exactly, which is good.
@@ -756,7 +861,9 @@ I filed this under engineering because a test would have caught it, but it is a 
 - **Fix:** pin exactly, and add Renovate: weekly, grouped, with automerge for dev-dependency patches only after CI passes.
 
 ### E8. Dead code and loose ends
+
 **nice** · effort S
+
 - **Evidence:**
   - Nine `ui.ts` keys are unused, in both languages: `site.description`, `lang.label`, `footer.contact`, `footer.note`, `writing.read`, `writing.published`, `home.chapters`, `home.toTop`, `date.present`.
     - `footer.note`'s "Built by hand in Munich" also contradicts the agent-workflow framing.
@@ -770,14 +877,18 @@ I filed this under engineering because a test would have caught it, but it is a 
 ## 8. Polish ideas specific to this site
 
 ### L1. A 404 that belongs to the thread
+
 **nice** · effort S
+
 - A short SVG thread that frays and snaps. It is static, so it works without JavaScript and with reduced motion.
 - "This page doesn't exist" in the visitor's language (S2).
 - Three ways on: Zenarios, About, Writing.
 - Optionally "Did you mean …" for known old keimeno.party paths.
 
 ### L2. Case studies that open out of the thread
+
 **should** · effort M
+
 - **What:** the plan's View Transition, which isn't built (no `@view-transition` or `transition:name` anywhere in `src/`).
 - **How:**
   - Add `@view-transition { navigation: auto; }` to both page types.
@@ -786,7 +897,9 @@ I filed this under engineering because a test would have caught it, but it is a 
   - Add Speculation Rules (`prerender`, `moderate`) for `/work/*` links, so the transition is instant. That needs `'inline-speculation-rules'` or a hash in the CSP.
 
 ### L3. The end of the thread
+
 **should** · effort M
+
 - **What:** the storyboard says it "pulls back to show every station as a constellation, then winds back into the name; contact appears". Today it stops on an unlabelled overview (`end-16.9.png`).
 - **How:**
   - Label the five figures in the overview (01 Zenarios … 05 History) as hotspots that jump back via the chapter logic.
@@ -794,15 +907,19 @@ I filed this under engineering because a test would have caught it, but it is a 
   - Add a "How this page was made →" link to the Thread post, the natural next click after the "holy shit".
 
 ### L4. "More things I've built"
+
 **should** · effort S–M
-- **What:** the rows are text only, there are no status markers, and the plan's "scan to play" QR for Lexicon Bluff is missing.
+
+- **What:** the rows are text only, there are no status markers, and the plan's "scan to play" QR for Stet is missing.
 - **How:**
   - Add a small screenshot per row: revealed on hover on desktop, inline on phones.
   - Add a chip per row: Live, Open source or Prototype.
-  - Show the QR on the Lexicon Bluff row on desktop; a phone visitor doesn't need it.
+  - Show the QR on the Stet row on desktop; a phone visitor doesn't need it.
 
 ### L5. The Writing teaser
+
 **should** · effort S (after C2)
+
 - **What:** today it shows three "DRAFT" rows with no dates.
 - **How:**
   - Once posts are published, show the date and reading time.
@@ -810,11 +927,14 @@ I filed this under engineering because a test would have caught it, but it is a 
   - With a single post, render it as one large card instead of a list.
 
 ### L6. A "Plain version" switch
+
 **should** · effort S
+
 - **What:** a small text button in the home header or the scroll hint ("Read without the animation"), or "Motion off" next to the sound toggle in Phase 6.
 - **How:** it sets `?nothread`, or a remembered preference in `localStorage`. Storing a setting the visitor asked for is strictly necessary under § 25 (2) TDDDG, so it needs no consent, but the privacy page's "no cookies" section should mention it in one line. The switch serves people with motion sensitivity who haven't set the OS preference, readers in a hurry, and people with weak GPUs, and it costs almost nothing.
 
 ### L7. Other polish
+
 - **Station stills at 2×** (nice, S): case-study heroes on 3× phones should be crisp, and `stills.mjs` can render at DPR 2.
 - **"More" navigation on the home header** (should, S): see A4.
 - **Copy numbers generated from code** (nice, S): see C7. The Thread post can quote `build-stats.json`, so "27.7 KB gz" is always true.
@@ -824,6 +944,7 @@ I filed this under engineering because a test would have caught it, but it is a 
 ## 9. Launch: what's left of Phases 6–7, and the off-site steps
 
 **Phase 6, sound** (plan: 2 days; gate: zero audio bytes before opt-in)
+
 - Not started: there is no `audio/` in `src/thread/`.
 - Sound isn't needed for SEO or for the first impression, and it adds risk on iOS. **Recommendation:** launch without it and add it in a later release. **Constantin decides.**
 - If it ships, the toggle should also respect reduced motion. CSP needs no change (it is synthesised).
@@ -887,15 +1008,15 @@ I filed this under engineering because a test would have caught it, but it is a 
 
 ## 10. Recommended order of work
 
-1. **Constantin's decisions** (C1, C2, C3, C5, C7, E2, sound). Ask in one message, since they block different steps. *About 1 h of his time.*
-2. **E4 phone overflow:** two CSS lines plus the overflow test. *S*
-3. **R1 context-loss fallback** (clean `stop()`), then **A1** (opacity instead of visibility, focus drives the timeline, `until-found`), then **A2 and A3**. *M*
-4. **C3 copy corrections** on the home page and in the case studies, **C6 tone**, and the **Appendix B** precision fixes. *S–M*
-5. **X1 `.gitignore`** → **E1** `git init` and first commit → **E2** licence. *S*
-6. **X2 headers, CSP and caching**, **S1 favicons**, **S2 German 404**, **S3** trailing slash. *S–M*
-7. **E3 tests** and **E5 CI** with Lighthouse budgets; **E6** Cloudflare preview deploys. *M*
-8. **Performance:** **P1** image, **P2** inline CSS, **P3** font subset, **P4** idle and hidden pausing. *S each*
-9. **Robustness polish:** **R2–R7**, **A4–A6**. *S each*
+1. **Constantin's decisions** (C1, C2, C3, C5, C7, E2, sound). Ask in one message, since they block different steps. _About 1 h of his time._
+2. **E4 phone overflow:** two CSS lines plus the overflow test. _S_
+3. **R1 context-loss fallback** (clean `stop()`), then **A1** (opacity instead of visibility, focus drives the timeline, `until-found`), then **A2 and A3**. _M_
+4. **C3 copy corrections** on the home page and in the case studies, **C6 tone**, and the **Appendix B** precision fixes. _S–M_
+5. **X1 `.gitignore`** → **E1** `git init` and first commit → **E2** licence. _S_
+6. **X2 headers, CSP and caching**, **S1 favicons**, **S2 German 404**, **S3** trailing slash. _S–M_
+7. **E3 tests** and **E5 CI** with Lighthouse budgets; **E6** Cloudflare preview deploys. _M_
+8. **Performance:** **P1** image, **P2** inline CSS, **P3** font subset, **P4** idle and hidden pausing. _S each_
+9. **Robustness polish:** **R2–R7**, **A4–A6**. _S each_
 10. **Real-device pass** (P7) on the preview URL, and fix what it finds.
 11. **Content depth:** C4 screenshots and figures; publish the posts after German approval (C2, C5).
 12. **Launch:** the DNS runbook and post-deploy checks (section 9, steps 7–8). Then off-site SEO (step 9).
@@ -908,40 +1029,41 @@ I filed this under engineering because a test would have caught it, but it is a 
 
 ## Appendix A: German copy fixes (all need Constantin's approval)
 
-The verdict: better than most translations. Quotes, number formats (1.000; 90,6 %; 0,099; 70.000 €), % spacing and compound hyphenation are correct throughout, and the register is consistent (impersonal everywhere; *Sie* only on the privacy page).
+The verdict: better than most translations. Quotes, number formats (1.000; 90,6 %; 0,099; 70.000 €), % spacing and compound hyphenation are correct throughout, and the register is consistent (impersonal everywhere; _Sie_ only on the privacy page).
 
-| # | Sev | Where | Current | Better |
-|---|---|---|---|---|
-| 1 | should | `src/data/history.ts:62` | „habe ich die **Webseite** des Minecraft-Netzwerks LuminuNET gebaut" (EN: "the web *side*") | „habe ich **die Webdienste** des Minecraft-Netzwerks LuminuNET gebaut" (mistranslation) |
-| 2 | should | `home.ts:275, 277`; `history.ts:111`; `AboutPage.astro:150` | „als das Projekt auf TypeScript **umzog**"; „die Fehlerklassen … **nach TypeScript brachte**" | „während der **Umstellung auf TypeScript**"; „das die Fehlerklassen **auf TypeScript umstellte**" |
-| 3 | should | `origins/de.mdx:56` | „**Erwachsen geworden würde er heute** den Authorization Code Flow … nutzen" | „**Heute würde ich ihn** mit dem Authorization Code Flow und PKCE bauen …" (the EN "Grown up today, it would…" also dangles) |
-| 4 | should | `origins/de.mdx:50` | „konnte also **TypeScript-Nutzer brechen** … statt **die API zu brechen**" | „riskierte also **Build-Fehler bei TypeScript-Nutzern** … statt **die API inkompatibel zu ändern**" |
-| 5 | should | `lexicon-bluff/de.mdx:24` | „wenn man **sich ansieht statt aufs Display**" (broken) | „wenn man sich gegenseitig ansieht statt aufs Display zu schauen" |
-| 6 | should | `lexicon-bluff/de.mdx:47` | „**Das Handy deaktiviert ihn**" (unclear antecedent) | „Die App sperrt die Taste für den eigenen Bluff" |
-| 7 | should | `travel-cost-calculator/de.mdx:20` | „Eine Reise hat **Daten**, Reisende und Kostenpunkte" (reads as "data") | „Eine Reise hat einen **Zeitraum**, Reisende und Kostenpunkte" |
-| 8 | should | `signals/de.mdx:10, 56` | „1,03 Milliarden **Tageszeilen**" | „1,03 Milliarden Zeilen **mit Tageswerten**, ein synthetisches Jahr" |
-| 9 | should | `AboutPage.astro:161` | „Zenarios, ein Finanzplaner … **Es ist** im App Store." | „**Zenarios gibt es** im App Store." |
-| 10 | should | `AboutPage.astro:164` | „**Am liebsten mag ich** Probleme, bei denen …" | „**Mich reizen** Probleme, bei denen Engine und Oberfläche gleichermaßen schwierig sind" |
-| 11 | should | `paperscores/de.mdx:47` | „Output-Tokens **sind die Rechnung**." | „Output-Tokens **bestimmen die Rechnung**." |
-| 12 | should | `paperscores/de.mdx:18` | „**einen ersten Durchgang** … **woher im Paper es stammt**" | „**eine erste Einschätzung** … **aus welcher Stelle des Papers** es stammt" |
-| 13 | should | `carcost/de.mdx:16` | „eine **Weggabelung**" | „eine **Besonderheit**" |
-| 14 | should | `signals/de.mdx:58` | „**Große Geschichten** erreichen viele Subreddits, also treten beliebige zwei gemeinsam auf." | „**Große Themen** erreichen viele Subreddits, deshalb tauchen beliebige zwei **oft gemeinsam** auf." |
-| 15 | should | `zenarios/de.mdx:39`; futures post | „**Goldene Zusammenfassungen**", „**goldene Werte**" | „**Referenzwerte** (Golden Snapshots)" |
-| 16 | should | `oidc-at-18/de.mdx:17` | „**die Quelle der Wahrheit**" | „**die maßgebliche Quelle**" |
-| 17 | should | `oidc-at-18/de.mdx:144` | „sind **ein großer Teil davon, warum** ich sie heute so gut verstehe" | „haben **viel dazu beigetragen, dass** ich sie heute so gut verstehe" |
-| 18 | nice | `oidc-at-18/de.mdx:20` | „**zwischen zwei Schulhalbjahren**" | „**Weihnachtsferien**" |
-| 19 | nice | `home.ts:202`; `ui.ts:93`; `AboutPage.astro:43` | „den Film, **mit dem sie starten**" | „und den Film **zum Launch**" |
-| 20 | nice | `home.ts:285`; `HistoryPage.astro:38`; `pages.ts:69` | „**mit Software in Produktion seit der Schulzeit**" | „Autodidakt, **der schon als Schüler Software ausgeliefert hat**" |
-| 21 | nice | `zenarios/de.mdx:9, 25` | „Marktszenarien pro Lauf, **höchstens**"; „**Dreizehn Stück**" | „… (**max.**)"; „**Dreizehn Szenarien**" |
-| 22 | nice | `origins/de.mdx:26, 32`; `oidc-at-18/de.mdx:26` | „**ID und Access Tokens**", „**Kurzschreib-Typ**" | „**ID- und Access-Tokens**", „**Hilfstyp in Kurzform**" |
-| 23 | nice | `lexicon-bluff/de.mdx:22` | „Wer richtig **tippt**" | „Wer richtig **rät**" |
-| 24 | nice | several | „große **Ernte**"; „**datierte Daten**"; „Lücke … **gefüllt**"; „ist **nullable**" | „Harvest-Lauf"; „Tabellen mit Gültigkeitsdatum"; „Lücke … **geschlossen**"; „darf null sein" |
-| 25 | nice | `history.ts:168`; `HistoryPage.astro:39, 47` | „Zenarios, **allein**"; „Die **Seite** vor dieser"; „**Dazu**" | „**als Solo-Projekt**"; „Die **Website** vor dieser"; „**Mehr dazu**" |
-| 26 | nice | `home.ts:234` | „**Es merkt**, worüber Reddit …" (no antecedent) | „**Signals merkt**, worüber Reddit zu reden beginnt …" |
-| 27 | nice | `home.ts:254` | „ein **narratives Review**" | „eine **narrative Übersichtsarbeit**" |
-| 28 | nice | `signals/de.mdx:54-58` | „Theil–Sen", „Mann–Kendall-p" (EN en dash) | „Theil-Sen-Schätzer", „Mann-Kendall-Test" |
+| #   | Sev    | Where                                                       | Current                                                                                       | Better                                                                                                                       |
+| --- | ------ | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| 1   | should | `src/data/history.ts:62`                                    | „habe ich die **Webseite** des Minecraft-Netzwerks LuminuNET gebaut" (EN: "the web _side_")   | „habe ich **die Webdienste** des Minecraft-Netzwerks LuminuNET gebaut" (mistranslation)                                      |
+| 2   | should | `home.ts:275, 277`; `history.ts:111`; `AboutPage.astro:150` | „als das Projekt auf TypeScript **umzog**"; „die Fehlerklassen … **nach TypeScript brachte**" | „während der **Umstellung auf TypeScript**"; „das die Fehlerklassen **auf TypeScript umstellte**"                            |
+| 3   | should | `origins/de.mdx:56`                                         | „**Erwachsen geworden würde er heute** den Authorization Code Flow … nutzen"                  | „**Heute würde ich ihn** mit dem Authorization Code Flow und PKCE bauen …" (the EN "Grown up today, it would…" also dangles) |
+| 4   | should | `origins/de.mdx:50`                                         | „konnte also **TypeScript-Nutzer brechen** … statt **die API zu brechen**"                    | „riskierte also **Build-Fehler bei TypeScript-Nutzern** … statt **die API inkompatibel zu ändern**"                          |
+| 5   | should | `lexicon-bluff/de.mdx:24`                                   | „wenn man **sich ansieht statt aufs Display**" (broken)                                       | „wenn man sich gegenseitig ansieht statt aufs Display zu schauen"                                                            |
+| 6   | should | `lexicon-bluff/de.mdx:47`                                   | „**Das Handy deaktiviert ihn**" (unclear antecedent)                                          | „Die App sperrt die Taste für den eigenen Bluff"                                                                             |
+| 7   | should | `travel-cost-calculator/de.mdx:20`                          | „Eine Reise hat **Daten**, Reisende und Kostenpunkte" (reads as "data")                       | „Eine Reise hat einen **Zeitraum**, Reisende und Kostenpunkte"                                                               |
+| 8   | should | `signals/de.mdx:10, 56`                                     | „1,03 Milliarden **Tageszeilen**"                                                             | „1,03 Milliarden Zeilen **mit Tageswerten**, ein synthetisches Jahr"                                                         |
+| 9   | should | `AboutPage.astro:161`                                       | „Zenarios, ein Finanzplaner … **Es ist** im App Store."                                       | „**Zenarios gibt es** im App Store."                                                                                         |
+| 10  | should | `AboutPage.astro:164`                                       | „**Am liebsten mag ich** Probleme, bei denen …"                                               | „**Mich reizen** Probleme, bei denen Engine und Oberfläche gleichermaßen schwierig sind"                                     |
+| 11  | should | `paperscores/de.mdx:47`                                     | „Output-Tokens **sind die Rechnung**."                                                        | „Output-Tokens **bestimmen die Rechnung**."                                                                                  |
+| 12  | should | `paperscores/de.mdx:18`                                     | „**einen ersten Durchgang** … **woher im Paper es stammt**"                                   | „**eine erste Einschätzung** … **aus welcher Stelle des Papers** es stammt"                                                  |
+| 13  | should | `unterm-strich/de.mdx:16`                                   | „eine **Weggabelung**"                                                                        | „eine **Besonderheit**"                                                                                                      |
+| 14  | should | `signals/de.mdx:58`                                         | „**Große Geschichten** erreichen viele Subreddits, also treten beliebige zwei gemeinsam auf." | „**Große Themen** erreichen viele Subreddits, deshalb tauchen beliebige zwei **oft gemeinsam** auf."                         |
+| 15  | should | `zenarios/de.mdx:39`; futures post                          | „**Goldene Zusammenfassungen**", „**goldene Werte**"                                          | „**Referenzwerte** (Golden Snapshots)"                                                                                       |
+| 16  | should | `oidc-at-18/de.mdx:17`                                      | „**die Quelle der Wahrheit**"                                                                 | „**die maßgebliche Quelle**"                                                                                                 |
+| 17  | should | `oidc-at-18/de.mdx:144`                                     | „sind **ein großer Teil davon, warum** ich sie heute so gut verstehe"                         | „haben **viel dazu beigetragen, dass** ich sie heute so gut verstehe"                                                        |
+| 18  | nice   | `oidc-at-18/de.mdx:20`                                      | „**zwischen zwei Schulhalbjahren**"                                                           | „**Weihnachtsferien**"                                                                                                       |
+| 19  | nice   | `home.ts:202`; `ui.ts:93`; `AboutPage.astro:43`             | „den Film, **mit dem sie starten**"                                                           | „und den Film **zum Launch**"                                                                                                |
+| 20  | nice   | `home.ts:285`; `HistoryPage.astro:38`; `pages.ts:69`        | „**mit Software in Produktion seit der Schulzeit**"                                           | „Autodidakt, **der schon als Schüler Software ausgeliefert hat**"                                                            |
+| 21  | nice   | `zenarios/de.mdx:9, 25`                                     | „Marktszenarien pro Lauf, **höchstens**"; „**Dreizehn Stück**"                                | „… (**max.**)"; „**Dreizehn Szenarien**"                                                                                     |
+| 22  | nice   | `origins/de.mdx:26, 32`; `oidc-at-18/de.mdx:26`             | „**ID und Access Tokens**", „**Kurzschreib-Typ**"                                             | „**ID- und Access-Tokens**", „**Hilfstyp in Kurzform**"                                                                      |
+| 23  | nice   | `lexicon-bluff/de.mdx:22`                                   | „Wer richtig **tippt**"                                                                       | „Wer richtig **rät**"                                                                                                        |
+| 24  | nice   | several                                                     | „große **Ernte**"; „**datierte Daten**"; „Lücke … **gefüllt**"; „ist **nullable**"            | „Harvest-Lauf"; „Tabellen mit Gültigkeitsdatum"; „Lücke … **geschlossen**"; „darf null sein"                                 |
+| 25  | nice   | `history.ts:168`; `HistoryPage.astro:39, 47`                | „Zenarios, **allein**"; „Die **Seite** vor dieser"; „**Dazu**"                                | „**als Solo-Projekt**"; „Die **Website** vor dieser"; „**Mehr dazu**"                                                        |
+| 26  | nice   | `home.ts:234`                                               | „**Es merkt**, worüber Reddit …" (no antecedent)                                              | „**Signals merkt**, worüber Reddit zu reden beginnt …"                                                                       |
+| 27  | nice   | `home.ts:254`                                               | „ein **narratives Review**"                                                                   | „eine **narrative Übersichtsarbeit**"                                                                                        |
+| 28  | nice   | `signals/de.mdx:54-58`                                      | „Theil–Sen", „Mann–Kendall-p" (EN en dash)                                                    | „Theil-Sen-Schätzer", „Mann-Kendall-Test"                                                                                    |
 
 **Terminology to unify**
+
 - „Marktszenarien" (Zenarios, the futures post) vs „Marktverläufe" (About, the Thread post) vs „Zukünfte" (home kicker). Pick **Marktszenarien**.
 - PaperScores' "Significance": „Relevanz" (home) vs „Bedeutung" (case study). Subscores: „Teilnoten" vs „Teilscores".
 - „Agenten-Workflow" (`zenarios/de.mdx:22`) vs „Agent-Workflow" elsewhere.
@@ -953,6 +1075,7 @@ The verdict: better than most translations. Quotes, number formats (1.000; 90,6 
 - „Thread" in German copy („Das war der Thread") is fine as a brand name; otherwise use „Faden".
 
 **Tone fixes (C6)**
+
 - `/writing` OG card (`src/lib/pages.ts:76, 81`): "How they work, and how I'd build them today." / „Wie sie funktionieren und wie ich sie heute bauen würde."
 - Travel calculator: rename "Status" to "What's next", and lead with "A working prototype from February 2026 that runs locally".
 - /history, old site: "keimeno.party, 2020: Vue 2, neo-brutalist, bright green, a showcase for what I was building then. This site keeps the spirit, adds the story and works without JavaScript."
@@ -962,9 +1085,10 @@ The verdict: better than most translations. Quotes, number formats (1.000; 90,6 
 
 ## Appendix B: Fact-check details (read-only passes over the source repos and `gh api`)
 
-> **Partly fixed (16 Oct).** Corrected in EN and DE: Signals 30–77 %, 3.15×, feeds of up to 25 subreddits, interims off screen and lines typed out, "rows of daily counts"; CarCost €70,000 plus the €100,000 cap from July 2025, and the demo key's test data; travel calculator "three places"; Lexicon Bluff "only the reader sees the texts"; segno "the README credits validator.js"; Zenarios coverage gates per layer, Switzerland, the Netherlands and New Zealand tolerances, "pseudonymous… on by default"; History "in 2021, reviews of 28 pull requests"; the home 2020 step ("React widgets, Storybook, CMS sites"). Not touched, as asked: everything in the posts (OIDC and Thread post), the Mac availability, and Lexicon Bluff's `years: "2026"` (the case study already names the 2024 sketch). The German counterparts are factual fixes; they still need Constantin's German review (C5).
+> **Partly fixed (16 Oct).** Corrected in EN and DE: Signals 30–77 %, 3.15×, feeds of up to 25 subreddits, interims off screen and lines typed out, "rows of daily counts"; Unterm Strich €70,000 plus the €100,000 cap from July 2025, and the demo key's test data; travel calculator "three places"; Stet "only the reader sees the texts"; segno "the README credits validator.js"; Zenarios coverage gates per layer, Switzerland, the Netherlands and New Zealand tolerances, "pseudonymous… on by default"; History "in 2021, reviews of 28 pull requests"; the home 2020 step ("React widgets, Storybook, CMS sites"). Not touched, as asked: everything in the posts (OIDC and Thread post), the Mac availability, and Stet's `years: "2026"` (the case study already names the 2024 sketch). The German counterparts are factual fixes; they still need Constantin's German review (C5).
 
 **Verified and solid.** Expert click-throughs will land well on:
+
 - **Zenarios:**
   - 38 tax systems (12 detailed, 26 simpler); the OECD test snippet is verbatim; 3,377+ test cases.
   - 90.55 % line coverage (lcov from 2026-10-13); 13 stress tests; 54 Ask intents; 7 languages; free with no in-app purchases.
@@ -972,22 +1096,23 @@ The verdict: better than most translations. Quotes, number formats (1.000; 90,6 
 - **WGRA:** the scoring snippet, 262 s on 4 CPUs, Brier 0.099/0.330 and 0.249/0.276, 14 edges, the 48 h TTL; the `wgra-v2` branch and its architecture doc are pushed.
 - **Sequelize #13710:** +731 −616, 41 files, merged on 5 Dec 2021, shipped in 6.12.0.
 - **segno:** 73 validators, 155 tests, 194 commits in 6 weeks.
-- **Lexicon Bluff:** 52,218 words, 34 tests.
-- **CarCost:** 79 presets, 83 tests.
+- **Stet:** 52,218 words, 34 tests.
+- **Unterm Strich:** 79 presets, 83 tests.
 - **OIDC:** RS256 since 31 Dec 2019; 10-minute tokens; 5 attempts in 5 minutes.
 - **Code snippets:** every snippet in the futures post and the Thread post is verbatim.
 
 **To correct** (should, effort S each, unless marked):
+
 - **Signals:**
   - `signals/en.mdx:60` and DE: "54 % (27–80 %)" → **30–77 %**, the configured 80 % interval.
   - `signals/en.mdx:64`: Deepgram interims aren't rendered; only final lines show, typed character by character. The same applies to home.ts:135, "captions build word by word".
   - `signals/en.mdx:36`: "3.2×" recomputes to 3.15×.
   - `signals/en.mdx:24`: feeds are batches of up to 25 subreddits, not one per group.
-- **CarCost:**
-  - `carcost/en.mdx:37` and DE: the 0.25 % EV cap is **100,000 €** for cars bought after 30 Jun 2025 (the repo uses 70,000). In English, write "€70,000".
+- **Unterm Strich:**
+  - `unterm-strich/en.mdx:37` and DE: the 0.25 % EV cap is **100,000 €** for cars bought after 30 Jun 2025 (the repo uses 70,000). In English, write "€70,000".
   - "Live fuel prices from Tankerkönig": the shipped demo key returns test data.
 - **Travel calculator** (`travel-cost-calculator/en.mdx:36`): "the cost formula exists twice" → three times.
-- **Lexicon Bluff:**
+- **Stet:**
   - `lexicon-bluff/en.mdx:47`, "in read-aloud mode nobody sees the texts", contradicts `:24` (the reader does see them).
   - `projects.ts:114`: "2026" vs a 2024 sketch; write "2024–2026" or "built in 2026".
 - **segno** (`segno/en.mdx:29`): MIT "with validator.js's copyright kept next to mine". That is true in the README only; the LICENSE file lists just Constantin.
