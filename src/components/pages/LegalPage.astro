@@ -26,8 +26,8 @@ const meta = {
   privacy: {
     title: de ? "Datenschutz · Constantin Metz" : "Privacy · Constantin Metz",
     description: de
-      ? "Datenschutzerklärung von metz.uk: keine Cookies, kein Tracking, keine Drittanbieter. Nur die Server-Logs des Hosters."
-      : "Privacy policy of metz.uk: no cookies, no tracking, no third parties. Only the host's server logs.",
+      ? "Datenschutzerklärung von metz.uk: keine Cookies, kein Tracking, keine Drittanbieter. Server-Logs des Hosters; der Autokosten-Rechner speichert nur lokal."
+      : "Privacy policy of metz.uk: no cookies, no tracking, no third parties. The host's server logs; the car cost calculator stores data only in your browser.",
     h1: de ? "Datenschutz" : "Privacy",
   },
 }[kind];
@@ -61,7 +61,7 @@ const meta = {
             <br />
             {LEGAL.address.lines.map((line) => (
               <>
-                <mark class="todo">{line}</mark>
+                {LEGAL.address.todo ? <mark class="todo">{line}</mark> : line}
                 <br />
               </>
             ))}
@@ -95,7 +95,8 @@ const meta = {
               Kurz: Diese Website setzt keine Cookies, speichert nichts in Ihrem Browser, misst
               keine Besuche und lädt nichts von Dritten. Schriften, Bilder und Skripte kommen von
               dieser Domain. Es fallen nur die Server-Logs an, ohne die keine Website ausgeliefert
-              werden kann.
+              werden kann. Die einzige Ausnahme ist der Autokosten-Rechner „Unterm Strich“: Er merkt
+              sich Ihre Eingaben im Browser Ihres Geräts. Sie verlassen es nicht.
             </p>
 
             <h2>Verantwortlicher</h2>
@@ -106,11 +107,20 @@ const meta = {
 
             <h2>Hosting und Server-Logs</h2>
             <p>
-              Die Website wird von{" "}
-              <mark class="todo">
-                {LEGAL.host.name}, {LEGAL.host.address}
-              </mark>{" "}
-              ausgeliefert. Bei jedem Aufruf verarbeitet der Hoster automatisch Daten, die Ihr
+              Die Website läuft auf einem virtuellen Server in Gravelines, Frankreich.
+              Vertragspartner ist {LEGAL.host.name}, {LEGAL.host.address}, {LEGAL.host.country.de}{" "}
+              (OVHcloud); Rechenzentrum und Netz betreibt {LEGAL.host.operator.de}. Der Server liegt
+              also in der EU. Weil mein Vertragspartner in Kanada sitzt, ist ein Zugriff von dort
+              für Wartung und Sicherheit nicht auszuschließen; für Kanada besteht ein
+              Angemessenheitsbeschluss der EU-Kommission für Unternehmen, die dem kanadischen
+              Datenschutzrecht unterliegen. Mehr in der{" "}
+              <a href={LEGAL.host.privacy} rel="noopener">
+                Datenschutzerklärung des Hosters
+              </a>
+              .
+            </p>
+            <p>
+              Bei jedem Aufruf verarbeiten der Server und das Netz davor automatisch Daten, die Ihr
               Browser übermittelt: IP-Adresse, Datum und Uhrzeit, die aufgerufene Adresse, die zuvor
               besuchte Seite (Referrer), Browser und Betriebssystem (User-Agent), die übertragene
               Datenmenge und den Statuscode.
@@ -119,27 +129,57 @@ const meta = {
               Das dient allein dazu, die Website auszuliefern, ihren Betrieb zu sichern und Angriffe
               abzuwehren. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO; das berechtigte Interesse
               liegt im sicheren Betrieb der Website. Ich werte diese Logs nicht aus und führe sie
-              mit keinen anderen Daten zusammen. Der Hoster löscht sie nach kurzer Zeit.{" "}
-              <mark class="todo">
-                Speicherdauer und Auftragsverarbeitungsvertrag nach Art. 28 DSGVO beim Deployment
-                bestätigen.
-              </mark>
+              mit keinen anderen Daten zusammen. Zugriffsprotokolle des Servers lösche ich nach
+              spätestens {LEGAL.logRetentionDays} Tagen.
+            </p>
+
+            <h2>Schriften, Cookies und Drittinhalte</h2>
+            <p>
+              Alle Schriften, Bilder und Skripte kommen von dieser Domain. Es gibt keine Verbindung
+              zu Google Fonts oder anderen Schriftdiensten, keine CDNs, keine Webanalyse, keine
+              Karten, Videos oder Social-Media-Plugins. Die Seiten dieser Website setzen keine
+              Cookies und legen nichts im Speicher Ihres Browsers ab; für sie ist eine Einwilligung
+              nach § 25 TDDDG deshalb nicht nötig. Für den Autokosten-Rechner gilt der nächste
+              Abschnitt. Eine automatisierte Entscheidungsfindung oder ein Profiling findet nicht
+              statt.
+            </p>
+
+            <h2>Autokosten-Rechner „Unterm Strich“</h2>
+            <p>
+              Der Rechner läuft vollständig in Ihrem Browser. Ihre Eingaben, etwa Fahrzeugwahl,
+              Fahrleistung, Zulassungsbezirk, Bruttogehalt, Steuerklasse, Kirchensteuer und
+              Kinderzahl, sowie die Ergebnisse werden nicht an meinen Server oder an Dritte
+              gesendet. Ich erhalte sie nicht und kann sie nicht einsehen. Es gibt keine Konten,
+              keine Cookies, keine Webanalyse und keine Anfragen an andere Anbieter; Schriften und
+              Daten kommen von dieser Domain. Beim Aufruf fallen die oben beschriebenen Server-Logs
+              an.
             </p>
             <p>
-              Der Hoster sitzt in den USA. Die Übermittlung stützt sich auf den
-              Angemessenheitsbeschluss der EU-Kommission zum EU-US Data Privacy Framework, unter dem
-              der Hoster zertifiziert ist. Mehr in seiner{" "}
-              <a href={LEGAL.host.privacy} rel="noopener">
-                Datenschutzerklärung
-              </a>
-              .
+              Damit der Rechner Ihre Arbeit behält, legt er Daten im lokalen Speicher (localStorage)
+              Ihres Browsers ab: Ihre aktuelle Rechnung mit Profil und Optionen, von Ihnen
+              gespeicherte Szenarien, Sprache und Darstellung (hell oder dunkel) und einige Merker
+              der Oberfläche, etwa ob das Beispiel schon gezeigt wurde. Außerdem installiert er
+              einen Service Worker, der seine Dateien im Browser-Cache vorhält, damit er auch
+              offline läuft. Beides dient allein dazu, den von Ihnen aufgerufenen Rechner
+              bereitzustellen und wie gewünscht zu nutzen (§ 25 Abs. 2 Nr. 2 TDDDG); eine
+              Einwilligung ist nicht nötig. Die Daten bleiben auf Ihrem Gerät, bis Sie sie löschen:
+              mit „Alles zurücksetzen“ im Rechner für die aktuelle Rechnung, vollständig über die
+              Website-Daten in den Einstellungen Ihres Browsers.
+            </p>
+            <p>
+              Mit „Teilen“ erzeugt der Rechner einen Link, der Ihre Rechnung samt Profil nach dem
+              #-Zeichen enthält, oder eine Datei zum Speichern. Der Teil eines Links nach dem # wird
+              von Ihrem Browser nicht an einen Server gesendet. Wenn Sie den Link oder die Datei
+              weitergeben, sehen die Empfänger und die Dienste, über die Sie ihn senden, etwa
+              Messenger, diese Angaben. Persönliche Notizen sind darin nicht enthalten.
             </p>
 
             <h2>E-Mail</h2>
             <p>
               Wenn Sie mir schreiben, verwende ich Ihre Adresse und Ihre Nachricht nur, um zu
               antworten (Art. 6 Abs. 1 lit. b oder f DSGVO), und lösche sie, wenn die Unterhaltung
-              erledigt ist und keine Aufbewahrungspflicht besteht.
+              erledigt ist und keine Aufbewahrungspflicht besteht. E-Mails an diese Adresse gehen
+              auf einem Server bei der {LEGAL.mailHost.name} ({LEGAL.mailHost.city}) ein.
             </p>
 
             <h2>Links auf andere Websites</h2>
@@ -170,6 +210,8 @@ const meta = {
               In short: this site sets no cookies, stores nothing in your browser, doesn't measure
               visits and loads nothing from third parties. Fonts, images and scripts all come from
               this domain. The only data are the server logs no website can be delivered without.
+              The one exception is the car cost calculator "Unterm Strich": it remembers your inputs
+              in your device's browser, and they never leave it.
             </p>
             <p class="legal__note">
               The{" "}
@@ -187,40 +229,72 @@ const meta = {
 
             <h2>Hosting and server logs</h2>
             <p>
-              The site is delivered by{" "}
-              <mark class="todo">
-                {LEGAL.host.name}, {LEGAL.host.address}
-              </mark>
-              . With every request, the host automatically processes what your browser sends: your
-              IP address, the date and time, the address requested, the page you came from
-              (referrer), your browser and operating system (user agent), the amount of data sent
-              and the status code.
+              The site runs on a virtual server in Gravelines, France. My contract is with{" "}
+              {LEGAL.host.name}, {LEGAL.host.address}, {LEGAL.host.country.en} (OVHcloud); the data
+              centre and network are run by {LEGAL.host.operator.en}. So the server is in the EU.
+              Because my contract partner is in Canada, access from there for maintenance and
+              security can't be ruled out; for Canada, the European Commission has an adequacy
+              decision for organisations covered by Canadian privacy law. More in the{" "}
+              <a href={LEGAL.host.privacy} rel="noopener">
+                host's privacy policy
+              </a>
+              .
+            </p>
+            <p>
+              With every request, the server and the network in front of it automatically process
+              what your browser sends: your IP address, the date and time, the address requested,
+              the page you came from (referrer), your browser and operating system (user agent), the
+              amount of data sent and the status code.
             </p>
             <p>
               This serves only to deliver the site, keep it running and fend off attacks. The legal
               basis is Art. 6 (1) (f) GDPR; the legitimate interest is running the site securely. I
-              don't analyse these logs or combine them with any other data. The host deletes them
-              after a short time.{" "}
-              <mark class="todo">
-                Confirm the retention period and the data processing agreement (Art. 28 GDPR) when
-                deploying.
-              </mark>
+              don't analyse these logs or combine them with any other data. I delete the server's
+              access logs after {LEGAL.logRetentionDays} days at the latest.
+            </p>
+
+            <h2>Fonts, cookies and third-party content</h2>
+            <p>
+              All fonts, images and scripts come from this domain. There is no connection to Google
+              Fonts or any other font service, no CDNs, no analytics, no maps, videos or social
+              media plugins. The pages of this site set no cookies and store nothing in your
+              browser, so no consent under § 25 TDDDG is needed for them. The car cost calculator is
+              covered in the next section. There is no automated decision-making or profiling.
+            </p>
+
+            <h2>Car cost calculator "Unterm Strich"</h2>
+            <p>
+              The calculator runs entirely in your browser. What you enter, such as the car you
+              pick, annual mileage, registration district, gross salary, tax class, church tax and
+              number of children, and the results are not sent to my server or to anyone else. I
+              don't receive them and can't see them. There are no accounts, no cookies, no analytics
+              and no requests to other providers; fonts and data come from this domain. Opening it
+              creates the server logs described above.
             </p>
             <p>
-              The host is based in the USA. Transfers rely on the European Commission's adequacy
-              decision for the EU-US Data Privacy Framework, under which the host is certified. More
-              in its{" "}
-              <a href={LEGAL.host.privacy} rel="noopener">
-                privacy policy
-              </a>
-              .
+              So that the calculator keeps your work, it stores data in your browser's local storage
+              (localStorage): your current calculation with its profile and options, scenarios you
+              saved, language and appearance (light or dark) and a few interface markers, such as
+              whether the example has been shown. It also installs a service worker that keeps its
+              files in the browser cache so it works offline. Both exist only to provide the
+              calculator you opened and to use it as you expect (§ 25 (2) no. 2 TDDDG), so no
+              consent is needed. The data stays on your device until you delete it: with "Reset
+              everything" in the calculator for the current calculation, completely through the site
+              data in your browser's settings.
+            </p>
+            <p>
+              "Share" creates a link that holds your calculation and profile after the # sign, or a
+              file to save. Your browser doesn't send the part of a link after the # to any server.
+              If you pass the link or the file on, the recipients and the services you send it
+              through, such as messengers, can see it. Private notes aren't part of it.
             </p>
 
             <h2>Email</h2>
             <p>
               If you write to me, I use your address and message only to reply (Art. 6 (1) (b) or
               (f) GDPR), and delete them once the conversation is over and nothing requires me to
-              keep them.
+              keep them. Mail to this address arrives on a server at {LEGAL.mailHost.name} (
+              {LEGAL.mailHost.city}).
             </p>
 
             <h2>Links to other sites</h2>
